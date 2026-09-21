@@ -1,4 +1,4 @@
-RETRO PIPES 1.4
+RETRO PIPES 1.5
 Classic-inspired 3D pipes, fireworks and bubbles, alone or layered together.
 
 START HERE
@@ -30,13 +30,14 @@ Esc closes it. Pipe scenes reset when full; effects-only scenes reset
 after 35-60 seconds. Each reset also rerolls enabled random settings.
 
 LAYERS
-Use the Pipes only, Fireworks only, Bubbles only, or All three buttons.
-Tick any combination of layer checkboxes to overlap those effects.
-The preset buttons disable random layer selection until you re-enable it.
+Choose Manual or Randomized from the top dropdown. Both use one settings frame.
+Tick Pipes, Fireworks and/or Bubbles inside the frame to overlap effects.
+Randomized mode shows Shuffle choices beside the settings; Manual hides them.
+Changing modes keeps your entered numbers. Redundant preset buttons are gone.
 Firework intensity accepts 1-30; bubble count accepts 1-100.
 
 SPAN ALL SCREENS
-Tick Span all detected screens for one continuous scene across your desktop.
+Tick One continuous scene across all detected screens for one continuous scene across your desktop.
 This works with wallpaper and the screensaver, including layered effects.
 The pipe speed and total count stay the same; the scene has more space and
 capacity. The fixed 105-second pipe cutoff is removed in this mode so paths
@@ -73,23 +74,32 @@ The slider stays at its end when you enter a larger value; that larger
 number is still used. Dragging the slider chooses a value in its usual range.
 Settings are saved when starting a mode or closing the controls.
 
-Enable random cycle, then tick only the options you want randomized.
+Choose Randomized, then tick Shuffle beside only the options to randomize.
 Speed and Count use 1 to your entered values; Colour chooses a theme.
 Rotation chance rolls rotation on/off at your chosen percentage.
 Pipes, Fireworks and Bubbles chance each roll their own layer on/off.
-Unchecked options follow the manual settings on the left.
+Unchecked Shuffle options follow the manual values in the same frame.
+Manual switches are dimmed while Shuffle controls the result.
 Random effect density uses 1 to your firework intensity and bubble count.
 
-Pipes random: speed, count, colour and rotation.
-Mix random: only the three layer choices.
-All random: every available category. Teapot chance stays as entered.
+Teapot Shuffle rolls its on/off switch (50% chance) and its per-bend probability
+from zero to your entered maximum. Leave Shuffle off to keep it fixed.
+
+Full Random picks new values for all animation settings and enables every
+Shuffle option, including teapots, rotation/layer chances and effect amounts.
+Fresh speed/count limits use 1-10 and 1-9; type larger limits if desired.
+Your spanning/separate-screen choice stays unchanged. Preview or start to apply.
+Each new scene then rolls within these limits.
+
+Custom XP controls now clear stale pixels and clip text correctly during
+partial repaints, fixing text that escaped its control and stuck on screen.
 
 In separate-screen mode, each screen rolls independently on every new scene, including R
 and the tray's Roll new scenes on every screen command. Your manual settings
 stay saved. Random values can sometimes coincide across screens by chance.
 Use Current screen settings in the tray to inspect each monitor's roll.
 If all layer rolls are off, one manually selected layer remains visible
-(Fireworks first, then Bubbles, then Pipes). Turning random cycle off uses
+(Fireworks first, then Bubbles, then Pipes). Choosing Manual uses
 your manual settings on all screens with independent animation paths.
 
 REQUIREMENTS AND NOTES

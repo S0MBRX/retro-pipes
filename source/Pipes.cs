@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -23,6 +23,7 @@ public class Settings {
     public bool RandomPipes = false, RandomFireworks = false, RandomBubbles = false;
     public int RotationChance = 50, PipesChance = 80, FireworksChance = 35, BubblesChance = 35;
     public bool RandomEffectDensity = false;
+    public bool RandomTeapots = false;
     public const int MaxSpeed = 1000, MaxCount = 500;
     public static string FilePath { get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "RetroPipes", "settings.xml"); } }
     public static Settings Load() { try { using(var s = File.OpenRead(FilePath)) return (Settings)new XmlSerializer(typeof(Settings)).Deserialize(s); } catch { return new Settings(); } }
@@ -48,6 +49,7 @@ public class Settings {
             if(RandomFireworks) result.Fireworks=random.Next(100)<result.FireworksChance;
             if(RandomBubbles) result.Bubbles=random.Next(100)<result.BubblesChance;
             if(RandomEffectDensity) { result.FireworkRate=random.Next(1,result.FireworkRate+1); result.BubbleCount=random.Next(1,result.BubbleCount+1); }
+            if(RandomTeapots) { result.Teapots=random.Next(2)==1; result.TeapotChance=Math.Round(random.NextDouble()*result.TeapotChance,2); }
             // Keep one of the manual layers if all chance rolls are off.
             if(!result.Pipes&&!result.Fireworks&&!result.Bubbles) { if(Fireworks) result.Fireworks=true; else if(Bubbles) result.Bubbles=true; else result.Pipes=true; }
         }
@@ -570,6 +572,8 @@ static class Tests {
         }
         if(uiSettings.Speed!=42||uiSettings.Count!=30||!uiSettings.SpanAllScreens) throw new Exception("Closing controls lost above-slider values or spanning mode");
         log.Add("PASS: launcher controls render and close cleanly.");
+        UiTests.Run(dir);
+        log.Add("PASS: clipped/translated paints, stale-pixel removal, 30 mode switches, typed overrides, Full Random, teapot randomization and persistence.");
         using(var resource=System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream("RetroPipes.ThirdPartyNotices"))
             if(resource==null||resource.Length==0) throw new Exception("Teapot data license is missing from binary");
         File.WriteAllLines(Path.Combine(dir,"test-results.txt"),log.ToArray());
