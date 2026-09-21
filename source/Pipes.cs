@@ -573,7 +573,7 @@ static class Tests {
         if(uiSettings.Speed!=42||uiSettings.Count!=30||!uiSettings.SpanAllScreens) throw new Exception("Closing controls lost above-slider values or spanning mode");
         log.Add("PASS: launcher controls render and close cleanly.");
         UiTests.Run(dir);
-        log.Add("PASS: clipped/translated paints, stale-pixel removal, 30 mode switches, typed overrides, Full Random, teapot randomization and persistence.");
+        log.Add("PASS: clipped/translated paints, stale-pixel removal, 30 mode switches, typed overrides, reusable Advanced dialog, Full Random on/off/defaults and persistence, teapot randomization.");
         using(var resource=System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream("RetroPipes.ThirdPartyNotices"))
             if(resource==null||resource.Length==0) throw new Exception("Teapot data license is missing from binary");
         File.WriteAllLines(Path.Combine(dir,"test-results.txt"),log.ToArray());

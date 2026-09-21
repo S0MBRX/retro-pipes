@@ -1,4 +1,4 @@
-RETRO PIPES 1.5
+RETRO PIPES 1.6
 Classic-inspired 3D pipes, fireworks and bubbles, alone or layered together.
 
 START HERE
@@ -32,7 +32,8 @@ after 35-60 seconds. Each reset also rerolls enabled random settings.
 LAYERS
 Choose Manual or Randomized from the top dropdown. Both use one settings frame.
 Tick Pipes, Fireworks and/or Bubbles inside the frame to overlap effects.
-Randomized mode shows Shuffle choices beside the settings; Manual hides them.
+Advanced opens teapots and effect amounts. In Randomized mode, it also shows
+individual Shuffle choices and rotation/layer probabilities.
 Changing modes keeps your entered numbers. Redundant preset buttons are gone.
 Firework intensity accepts 1-30; bubble count accepts 1-100.
 
@@ -58,7 +59,7 @@ display support determine practical limits.
 
 TEAPOT EASTER EGG
 Enabled by default, with a 0.5% chance of a Utah teapot at each pipe bend.
-Change the chance from 0-100% to make it rarer or more common.
+Open Advanced to change the chance from 0-100% or disable teapots.
 
 COLOURS
 Classic: bright glossy colours. Electric: cyan, pink and violet.
@@ -74,22 +75,29 @@ The slider stays at its end when you enter a larger value; that larger
 number is still used. Dragging the slider chooses a value in its usual range.
 Settings are saved when starting a mode or closing the controls.
 
-Choose Randomized, then tick Shuffle beside only the options to randomize.
+Choose Randomized, then open Advanced and tick only the options to shuffle.
 Speed and Count use 1 to your entered values; Colour chooses a theme.
 Rotation chance rolls rotation on/off at your chosen percentage.
 Pipes, Fireworks and Bubbles chance each roll their own layer on/off.
-Unchecked Shuffle options follow the manual values in the same frame.
+Unchecked Shuffle options follow their manual values.
 Manual switches are dimmed while Shuffle controls the result.
 Random effect density uses 1 to your firework intensity and bubble count.
 
 Teapot Shuffle rolls its on/off switch (50% chance) and its per-bend probability
 from zero to your entered maximum. Leave Shuffle off to keep it fixed.
 
-Full Random picks new values for all animation settings and enables every
-Shuffle option, including teapots, rotation/layer chances and effect amounts.
-Fresh speed/count limits use 1-10 and 1-9; type larger limits if desired.
+Full Random is a toggle, not a button that replaces your numeric values.
+First click: enable every layer, rotation, teapots and every shuffle option,
+using your current numbers and probabilities. The button reads Full Random: On.
+Second click: return to Manual and restore basic defaults (pipes only, speed 5,
+count 5, Classic colours, rotation off, teapots at 0.5%, fireworks 4, bubbles 16).
+Default shuffle choices and probabilities are restored too.
 Your spanning/separate-screen choice stays unchanged. Preview or start to apply.
-Each new scene then rolls within these limits.
+The on/off label reflects the current options, including after reopening.
+
+Advanced keeps its values when closed. The main panel stays compact with the
+effect switches, speed, count, colour preset and rotation. Custom colour editing
+is not included in this version; the existing presets remain available.
 
 Custom XP controls now clear stale pixels and clip text correctly during
 partial repaints, fixing text that escaped its control and stuck on screen.

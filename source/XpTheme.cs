@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Runtime.InteropServices;
@@ -48,8 +48,8 @@ class XpForm : Form {
         using(var p=new Pen(Color.FromArgb(108,175,255))) g.DrawLine(p,5,2,Width-6,2);
         if(Icon!=null) g.DrawIcon(Icon,new Rectangle(10,8,17,17));
         using(var font=new Font("Trebuchet MS",11,FontStyle.Bold)) {
-            TextRenderer.DrawText(g,"Retro Pipes - Screen Saver Settings",font,new Point(35,7),Color.FromArgb(0,37,121),XpTheme.PaintText);
-            TextRenderer.DrawText(g,"Retro Pipes - Screen Saver Settings",font,new Point(34,6),Color.White,XpTheme.PaintText);
+            TextRenderer.DrawText(g,Text=="Retro Pipes"?"Retro Pipes - Screen Saver Settings":Text,font,new Point(35,7),Color.FromArgb(0,37,121),XpTheme.PaintText);
+            TextRenderer.DrawText(g,Text=="Retro Pipes"?"Retro Pipes - Screen Saver Settings":Text,font,new Point(34,6),Color.White,XpTheme.PaintText);
         }
 
     }

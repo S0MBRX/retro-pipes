@@ -54,13 +54,36 @@ static class UiTests {
                 launcher.DrawToBitmap(after,launcher.ClientRectangle); SamePixels(baseline,after,"Switching modes left stale controls");
             }
             if(launcher.speedNumber.Value!=125||launcher.countNumber.Value!=60) throw new Exception("Mode switch lost typed overrides");
+            using(var advanced=launcher.CreateAdvancedWindow()) {
+                advanced.StartPosition=FormStartPosition.Manual; advanced.Location=new Point(-16000,-16000); advanced.Show(); Application.DoEvents();
+                using(var bitmap=new Bitmap(advanced.Width,advanced.Height)) { advanced.DrawToBitmap(bitmap,advanced.ClientRectangle); bitmap.Save(Path.Combine(dir,"Advanced-manual-preview.png"),ImageFormat.Png); }
+                advanced.Close();
+            }
             launcher.FullRandom();
-            if(launcher.modeSelector.SelectedIndex!=1) throw new Exception("Full Random did not select randomized mode");
+            if(!launcher.FullRandomEnabled||launcher.speedNumber.Value!=125||launcher.countNumber.Value!=60) throw new Exception("Full Random did not enable all options or changed entered limits");
+            using(var advanced=launcher.CreateAdvancedWindow()) {
+                advanced.StartPosition=FormStartPosition.Manual; advanced.Location=new Point(-16000,-16000); advanced.Show(); Application.DoEvents();
+                using(var bitmap=new Bitmap(advanced.Width,advanced.Height)) { advanced.DrawToBitmap(bitmap,advanced.ClientRectangle); bitmap.Save(Path.Combine(dir,"Advanced-preview.png"),ImageFormat.Png); }
+                advanced.Close();
+            }
             using(var bitmap=new Bitmap(launcher.Width,launcher.Height)) { launcher.DrawToBitmap(bitmap,launcher.ClientRectangle); bitmap.Save(Path.Combine(dir,"Randomized-preview.png"),ImageFormat.Png); }
             launcher.Close();
         }
         if(!settings.RandomizeEachRun||!settings.RandomSpeed||!settings.RandomCount||!settings.RandomPalette||!settings.RandomRotation||!settings.RandomPipes||!settings.RandomFireworks||!settings.RandomBubbles||!settings.RandomEffectDensity||!settings.RandomTeapots||!settings.SpanAllScreens)
             throw new Exception("Full Random omitted a category or changed the display layout");
+        var toggled=settings.Copy();
+        using(var launcher=new Launcher(toggled,false)) {
+            launcher.StartPosition=FormStartPosition.Manual; launcher.Location=new Point(-16000,-16000); launcher.Show(); Application.DoEvents();
+            if(!launcher.FullRandomEnabled) throw new Exception("Reopened controls lost Full Random state");
+            launcher.FullRandom();
+            if(launcher.FullRandomEnabled||launcher.modeSelector.SelectedIndex!=0) throw new Exception("Second click did not turn Full Random off");
+            launcher.Close();
+        }
+        var defaults=new Settings {SpanAllScreens=true};
+        using(var expected=new StringWriter()) using(var actual=new StringWriter()) {
+            var serializer=new System.Xml.Serialization.XmlSerializer(typeof(Settings)); serializer.Serialize(expected,defaults); serializer.Serialize(actual,toggled);
+            if(expected.ToString()!=actual.ToString()) throw new Exception("Full Random off did not restore basic defaults and preserve screen layout");
+        }
         var rng=new Random(15); bool enabled=false,disabled=false; double first=-1; bool varied=false;
         for(int i=0;i<100;i++) {
             var roll=settings.ForRun(rng); enabled|=roll.Teapots; disabled|=!roll.Teapots;

@@ -6,7 +6,7 @@ Classic-inspired 3D pipes, fireworks and glass bubbles. Run each one alone or ov
 
 ## Download and run
 
-Download **Retro-Pipes-v1.5.zip** from the [latest release](https://github.com/S0MBRX/retro-pipes/releases/latest), extract it, and open **RetroPipes.exe**.
+Download **Retro-Pipes-v1.6.zip** from the [latest release](https://github.com/S0MBRX/retro-pipes/releases/latest), extract it, and open **RetroPipes.exe**.
 
 - **Start wallpaper** animates behind desktop icons. Use its system-tray icon to open controls or stop it.
 - **Try screensaver** fills your displays. Move the mouse or press any key to exit.
@@ -19,7 +19,11 @@ Download **Retro-Pipes-v1.5.zip** from the [latest release](https://github.com/S
 
 The control panel uses an XP-style blue title bar, cream panels, classic buttons, green checkmarks and the Windows XP wordmark. The title bar can be dragged; minimize and close work normally. The header shows the current display count and desktop size.
 
-Choose **Manual** or **Randomized** from the dropdown above one shared settings frame. Inside the frame, tick **Pipes**, **Fireworks**, and/or **Bubbles** to select any combination. The former layer preset buttons and three competing random presets have been removed. Randomized mode reveals shuffle choices beside the same controls; Manual hides them. Switching modes preserves your entered values.
+Choose **Manual** or **Randomized** from the dropdown above one compact settings frame. Tick **Pipes**, **Fireworks**, and/or **Bubbles** to select any combination. Speed, pipe count, colour preset, slow rotation and screen layout remain on the main panel. Switching modes preserves entered values.
+
+**Advanced...** opens teapot settings, firework intensity, bubble count, and (in Randomized mode) every individual Shuffle switch and rotation/layer chance. Closing Advanced keeps your edits; hiding the controls does not disable their settings. Existing colour presets remain in the main panel; a custom palette editor is not included.
+
+![Advanced settings in Randomized mode](Advanced-preview.png)
 
 Custom controls now clear their previous pixels and preserve the graphics clipping region and origin when drawing text. This fixes text escaping its control during partial repaints and prevents old text/checkmarks/slider positions from sticking.
 
@@ -31,13 +35,13 @@ The number boxes accept **speed 1–1000** and **pipe count 1–500**, beyond th
 
 ### Teapot easter egg
 
-Enable **Teapot easter egg** for an occasional Utah teapot at a pipe bend. The default chance is **0.5% per bend**; the number box accepts 0–100%. A larger value makes it easier to spot.
+Enable **Teapot easter egg** in **Advanced...** for an occasional Utah teapot at a pipe bend. The default chance is **0.5% per bend**; the number box accepts 0–100%. A larger value makes it easier to spot.
 
 ![Teapots at pipe bends, with the chance increased for demonstration](Teapot-preview.png)
 
 ### Independent random cycles
 
-Choose **Randomized**, then tick **Shuffle** beside each setting that should change:
+Choose **Randomized**, open **Advanced...**, then tick **Shuffle** beside each setting that should change:
 
 - **Pipe speed / Pipe count / Pipe colour** independently randomize those settings. Numbers range from 1 to your entered maxima; colour chooses one of the three themes.
 - **Slow rotation** independently chooses rotation on/off using the percentage beside it.
@@ -45,9 +49,11 @@ Choose **Randomized**, then tick **Shuffle** beside each setting that should cha
 - **Shuffle both**, beside firework intensity and bubble count, rolls those amounts from 1 to your entered maxima.
 - **Teapot easter egg** shuffles the on/off switch with a 50% chance, and its per-bend probability from zero to your entered maximum. Leave its Shuffle box unticked to keep your preferred probability.
 
-**Full Random** picks fresh values for every animation setting and enables every Shuffle option, including teapots. It also rerolls rotation/layer probabilities and the effect amounts. Fresh pipe speed/count limits use the convenient slider ranges (1–10 and 1–9); you can then type higher limits. It keeps your spanning/separate-screen choice. Preview or start a mode to apply the new configuration. Each subsequent scene rolls independently within these new limits.
+**Full Random** is an on/off toggle. The first click enables all animation layers, rotation, teapots, and every Shuffle category, using your existing numeric limits and probabilities. It selects Randomized mode; the button reads **Full Random: On**. Each new scene then rolls its settings. It no longer randomly replaces the numbers in the control panel.
 
-![Randomized mode in the same settings frame](Randomized-preview.png)
+Click it again to restore the basic **Manual** defaults: pipes only, speed 5, count 5, Classic colours, rotation off, rare teapots at 0.5%, firework intensity 4 and bubble count 16. Default shuffle choices and chance percentages are restored too. Your spanning/separate-screen preference is kept in both directions. Preview or start a mode to apply the configuration. The button reflects the current selection of Shuffle categories, including after reopening the app.
+
+![Compact main panel with Full Random enabled](Randomized-preview.png)
 
 In separate-screen mode, each monitor rolls independently on start, when its scene finishes, on R in a preview, or through **Roll new scenes on every screen** in the tray menu. Pipe scenes finish when full; effects-only scenes cycle after 35–60 seconds. Random values can occasionally match by chance, but no settings roll is shared across separate scenes.
 
@@ -100,6 +106,6 @@ if ($process.ExitCode -ne 0) { throw 'Self-test failed. See work/test-error.txt.
 Get-Content .\work\test-results.txt
 ```
 
-The tests exercise selective random settings, 0%/100% chances, old-settings migration, extended values, serialization, high-speed growth, dense scenes, collision avoidance, scene cycling, teapot generation, all seven layer combinations, three simultaneous independent screen cycles, layouts with 1–64 displays, view rebuilding for 1/5/2 displays, seamless shared projections, rendered-slice comparison against a full scene, unchanged spanning growth speed/count, desktop attachment, bounded effects, OpenGL rendering, preview embedding and launcher controls. UI regression tests check clipped and translated repaints, removal of stale pixels, 30 mode switches, typed overrides, Full Random, and teapot randomization/persistence. The clipping regression fails against the previous drawing code and passes with the fix. Test windows are placed offscreen. Tests leave saved user settings unchanged. Layout tests simulate large monitor counts; physical desktop attachment was tested on a three-monitor setup.
+The tests exercise selective random settings, 0%/100% chances, old-settings migration, extended values, serialization, high-speed growth, dense scenes, collision avoidance, scene cycling, teapot generation, all seven layer combinations, three simultaneous independent screen cycles, layouts with 1–64 displays, view rebuilding for 1/5/2 displays, seamless shared projections, rendered-slice comparison against a full scene, unchanged spanning growth speed/count, desktop attachment, bounded effects, OpenGL rendering, preview embedding and launcher controls. UI regression tests check clipped and translated repaints, removal of stale pixels, 30 mode switches, typed overrides, repeated Advanced-dialog opening, Full Random on/off/default restoration and persistence, and teapot randomization. The clipping regression fails against the previous drawing code and passes with the fix. Test windows are placed offscreen. Tests leave saved user settings unchanged. Layout tests simulate large monitor counts; physical desktop attachment was tested on a three-monitor setup.
 
 See [README.txt](README.txt) for command-line modes and uninstall instructions.
