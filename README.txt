@@ -1,4 +1,4 @@
-RETRO PIPES 1.1
+RETRO PIPES 1.1.1
 Procedurally generated 3D pipes inspired by the classic Windows screensaver.
 
 START HERE
@@ -28,6 +28,8 @@ Esc closes it. Each scene is generated live and resets after it fills up.
 COLOURS
 Classic: bright glossy colours. Electric: cyan, pink and violet.
 Chrome: silver tones. Slow scene rotation is optional.
+Each layout picks a random starting colour from the selected theme, so a
+single pipe can use any of its colours, even with random settings turned off.
 
 NUMBER BOXES AND RANDOMIZATION
 Type directly into the number box to the right of each slider.

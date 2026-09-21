@@ -158,9 +158,10 @@ class Scene {
     public void Reset() {
         Segments.Clear(); Pipes.Clear(); Occupied.Clear(); Age=0; hold=0; Resets++;
         var pal=palettes[settings.Palette];
+        int colourOffset=rng.Next(pal.Length);
         for(int i=0;i<settings.Count;i++) {
             Cell start; do { start=new Cell(rng.Next(-halfX,halfX+1),rng.Next(-6,7),rng.Next(-4,5)); } while(Occupied.Contains(start));
-            Occupied.Add(start); Pipes.Add(new Pipe { At=start,Color=pal[i%pal.Length] });
+            Occupied.Add(start); Pipes.Add(new Pipe { At=start,Color=pal[(i+colourOffset)%pal.Length] });
         }
     }
     bool Inside(Cell c) { return Math.Abs(c.X)<=halfX && Math.Abs(c.Y)<=6 && Math.Abs(c.Z)<=4; }
@@ -292,6 +293,19 @@ class PipesWindow : Form {
 static class Tests {
     public static void Run(string dir) {
         Directory.CreateDirectory(dir); var log=new List<string>();
+        for(int theme=0;theme<3;theme++) {
+            var starts=new HashSet<int>(); var resets=new HashSet<int>();
+            var single=new Scene(new Settings {Count=1,Palette=theme},77,1.6);
+            for(int seed=0;seed<60;seed++) {
+                starts.Add(new Scene(new Settings {Count=1,Palette=theme},seed,1.6).Pipes[0].Color.ToArgb());
+                single.Reset(); resets.Add(single.Pipes[0].Color.ToArgb());
+            }
+            if(starts.Count<2||resets.Count<2) throw new Exception("Single-pipe colour is fixed across starts or layout resets");
+        }
+        var multiple=new Scene(new Settings {Count=7,Palette=0},77,1.6);
+        var distinctColours=new HashSet<int>(); foreach(var pipe in multiple.Pipes) distinctColours.Add(pipe.Color.ToArgb());
+        if(distinctColours.Count!=7) throw new Exception("Classic multi-pipe colour variety was lost");
+        log.Add("PASS: single-pipe colours vary across starts and layout resets in all themes; multi-pipe colours stay varied.");
         var manual=new Settings { Speed=125,Count=60,Palette=2,Rotate=true };
         manual.Validate(); var fixedRun=manual.ForRun(new Random(1));
         if(fixedRun.Speed!=125||fixedRun.Count!=60||fixedRun.Palette!=2||!fixedRun.Rotate) throw new Exception("Extended manual values were lost");

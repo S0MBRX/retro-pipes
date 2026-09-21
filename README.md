@@ -6,7 +6,7 @@ Procedurally generated, glossy 3D pipes inspired by the classic Windows screensa
 
 ## Download and run
 
-Download **Retro-Pipes-v1.1.zip** from the [latest release](https://github.com/S0MBRX/retro-pipes/releases/latest), extract it, and open **RetroPipes.exe**.
+Download **Retro-Pipes-v1.1.1.zip** from the [latest release](https://github.com/S0MBRX/retro-pipes/releases/latest), extract it, and open **RetroPipes.exe**.
 
 - **Start live wallpaper** animates behind desktop icons. Use its system-tray icon to open controls or stop it.
 - **Try screensaver** fills your displays. Move the mouse or press any key to exit.
@@ -18,6 +18,8 @@ Download **Retro-Pipes-v1.1.zip** from the [latest release](https://github.com/S
 ![Settings with numbers above the slider ranges](Controls-preview.png)
 
 Choose Classic, Electric or Chrome colours, growth speed, pipe count and optional slow rotation.
+
+Every layout picks a random starting colour from the selected theme. A single pipe can use any of the theme's colours, including when randomized settings are turned off.
 
 The number boxes accept **speed 1–1000** and **pipe count 1–500**, beyond the sliders' convenient ranges of 1–10 and 1–9. Larger typed values remain active even though the slider stays at its end. Moving a slider selects a value within its regular range.
 
