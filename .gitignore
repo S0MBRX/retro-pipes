@@ -1,0 +1,8 @@
+*.exe
+*.scr
+*.zip
+work/
+source/test-results.txt
+.vs/
+bin/
+obj/
