@@ -15,17 +15,40 @@ public class Settings {
     public int Palette = 0;
     public bool Rotate = false;
     public bool RandomizeEachRun = false;
+    public bool Pipes = true, Fireworks = false, Bubbles = false, Teapots = true;
+    public int FireworkRate = 4, BubbleCount = 16;
+    public double TeapotChance = 0.5;
+    public bool RandomSpeed = true, RandomCount = true, RandomPalette = true, RandomRotation = true;
+    public bool RandomPipes = false, RandomFireworks = false, RandomBubbles = false;
+    public int RotationChance = 50, PipesChance = 80, FireworksChance = 35, BubblesChance = 35;
+    public bool RandomEffectDensity = false;
     public const int MaxSpeed = 1000, MaxCount = 500;
     public static string FilePath { get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "RetroPipes", "settings.xml"); } }
     public static Settings Load() { try { using(var s = File.OpenRead(FilePath)) return (Settings)new XmlSerializer(typeof(Settings)).Deserialize(s); } catch { return new Settings(); } }
     public void Save() { Directory.CreateDirectory(Path.GetDirectoryName(FilePath)); using(var s = File.Create(FilePath)) new XmlSerializer(typeof(Settings)).Serialize(s,this); }
-    public void Validate() { Speed=Math.Max(1,Math.Min(MaxSpeed,Speed)); Count=Math.Max(1,Math.Min(MaxCount,Count)); Palette=Math.Max(0,Math.Min(2,Palette)); }
+    public Settings Copy() { return (Settings)MemberwiseClone(); }
+    public void Validate() {
+        Speed=Math.Max(1,Math.Min(MaxSpeed,Speed)); Count=Math.Max(1,Math.Min(MaxCount,Count)); Palette=Math.Max(0,Math.Min(2,Palette));
+        FireworkRate=Math.Max(1,Math.Min(30,FireworkRate)); BubbleCount=Math.Max(1,Math.Min(100,BubbleCount));
+        TeapotChance=double.IsNaN(TeapotChance)?0.5:Math.Max(0,Math.Min(100,TeapotChance));
+        RotationChance=Percent(RotationChance); PipesChance=Percent(PipesChance); FireworksChance=Percent(FireworksChance); BubblesChance=Percent(BubblesChance);
+        if(!Pipes&&!Fireworks&&!Bubbles) Pipes=true;
+    }
+    static int Percent(int n) { return Math.Max(0,Math.Min(100,n)); }
     public Settings ForRun(Random random) {
-        var result=new Settings { Speed=Speed,Count=Count,Palette=Palette,Rotate=Rotate };
+        var result=Copy(); result.RandomizeEachRun=false;
         result.Validate();
         if(RandomizeEachRun) {
-            result.Speed=random.Next(1,result.Speed+1); result.Count=random.Next(1,result.Count+1);
-            result.Palette=random.Next(3); result.Rotate=random.Next(2)==1;
+            if(RandomSpeed) result.Speed=random.Next(1,result.Speed+1);
+            if(RandomCount) result.Count=random.Next(1,result.Count+1);
+            if(RandomPalette) result.Palette=random.Next(3);
+            if(RandomRotation) result.Rotate=random.Next(100)<result.RotationChance;
+            if(RandomPipes) result.Pipes=random.Next(100)<result.PipesChance;
+            if(RandomFireworks) result.Fireworks=random.Next(100)<result.FireworksChance;
+            if(RandomBubbles) result.Bubbles=random.Next(100)<result.BubblesChance;
+            if(RandomEffectDensity) { result.FireworkRate=random.Next(1,result.FireworkRate+1); result.BubbleCount=random.Next(1,result.BubbleCount+1); }
+            // Keep one of the manual layers if all chance rolls are off.
+            if(!result.Pipes&&!result.Fireworks&&!result.Bubbles) { if(Fireworks) result.Fireworks=true; else if(Bubbles) result.Bubbles=true; else result.Pipes=true; }
         }
         return result;
     }
@@ -41,7 +64,6 @@ static class Program {
             string mode=args.Length==0 ? "" : args[0].ToLowerInvariant();
             if(mode=="--self-test") { Tests.Run(args.Length>1?args[1]:"."); return; }
             if(mode=="/s" || mode=="--screensaver") {
-                settings=settings.ForRun(new Random());
                 foreach(var screen in Screen.AllScreens) new PipesWindow(settings,"saver",screen.Bounds,IntPtr.Zero).Show();
                 Application.Run(); return;
             }
@@ -49,7 +71,7 @@ static class Program {
                 long id; string value=mode.Contains(":")?mode.Substring(mode.IndexOf(':')+1):(args.Length>1?args[1]:"");
                 if(long.TryParse(value,out id) && Native.IsWindow(new IntPtr(id))) {
                     var parent=new IntPtr(id); Native.RECT r; Native.GetClientRect(parent,out r);
-                    Application.Run(new PipesWindow(settings.ForRun(new Random()),"preview",new Rectangle(0,0,r.Right,r.Bottom),parent));
+                    Application.Run(new PipesWindow(settings,"preview",new Rectangle(0,0,r.Right,r.Bottom),parent));
                 }
                 return;
             }
@@ -63,81 +85,6 @@ static class Program {
     }
 }
 
-class Launcher : Form {
-    Settings settings; TrackBar speed,count; internal NumericUpDown speedNumber,countNumber; ComboBox palette; CheckBox rotate,randomize; NotifyIcon tray;
-    bool persistSettings; Random random=new Random();
-    List<PipesWindow> wallpapers=new List<PipesWindow>(); Timer watch=new Timer(); Label status;
-    System.Threading.Mutex wallpaperLock; bool ownsWallpaperLock;
-    public Launcher(Settings value) : this(value,true) { }
-    internal Launcher(Settings value,bool persist) {
-        settings=value; settings.Validate(); persistSettings=persist; Text="Retro Pipes"; ClientSize=new Size(540,590); FormBorderStyle=FormBorderStyle.FixedDialog;
-        MaximizeBox=false; StartPosition=FormStartPosition.CenterScreen; BackColor=Color.FromArgb(17,20,29); ForeColor=Color.White;
-        Font=new Font("Segoe UI",10); Icon=Icon.ExtractAssociatedIcon(Application.ExecutablePath);
-        AddLabel("RETRO PIPES",28,23,480,38,24,FontStyle.Bold,Color.White);
-        AddLabel("A little piece of the old desktop.",30,70,480,25,11,FontStyle.Regular,Color.FromArgb(161,176,201));
-        AddLabel("COLOUR",30,119,110,24,9,FontStyle.Bold,Color.LightSteelBlue);
-        palette=new ComboBox { Left=155,Top=113,Width=348,DropDownStyle=ComboBoxStyle.DropDownList };
-        palette.Items.AddRange(new object[]{"Classic — bright & glossy","Electric — cyan, pink & violet","Chrome — polished silver"}); palette.SelectedIndex=settings.Palette; Controls.Add(palette);
-        AddLabel("GROWTH SPEED",30,166,125,24,9,FontStyle.Bold,Color.LightSteelBlue);
-        speed=new TrackBar { Left=150,Top=155,Width=264,Minimum=1,Maximum=10,Value=Math.Min(10,settings.Speed),TickStyle=TickStyle.None }; Controls.Add(speed);
-        speedNumber=AddNumber(speed,settings.Speed,Settings.MaxSpeed,159,"SpeedValue");
-        AddLabel("PIPE COUNT",30,213,125,24,9,FontStyle.Bold,Color.LightSteelBlue);
-        count=new TrackBar { Left=150,Top=202,Width=264,Minimum=1,Maximum=9,Value=Math.Min(9,settings.Count),TickStyle=TickStyle.None }; Controls.Add(count);
-        countNumber=AddNumber(count,settings.Count,Settings.MaxCount,206,"CountValue");
-        AddLabel("Type larger values: speed up to 1000, pipes up to 500.",155,243,355,20,9,FontStyle.Regular,Color.LightSteelBlue);
-        rotate=new CheckBox { Left=155,Top=273,Width=350,Text="Slowly rotate the scene",Checked=settings.Rotate }; Controls.Add(rotate);
-        randomize=new CheckBox { Left=30,Top=310,Width=480,Text="Randomize settings each run",Checked=settings.RandomizeEachRun }; Controls.Add(randomize);
-        AddLabel("Each start rolls speed and count from 1 to your values,\nplus colour and rotation. Your saved values stay as set.",30,338,480,40,9,FontStyle.Regular,Color.LightSteelBlue);
-        AddButton("Preview in a window",30,388,232,delegate { Save(); new PipesWindow(settings.ForRun(random),"window",new Rectangle(0,0,960,600),IntPtr.Zero).Show(); });
-        AddButton("Try screensaver",278,388,232,delegate { Save(); Process.Start(Application.ExecutablePath,"/s"); });
-        AddButton("Start live wallpaper",30,443,232,delegate { StartWallpaper(); });
-        AddButton("Stop live wallpaper",278,443,232,delegate { StopWallpaper(); });
-        status=AddLabel("Wallpaper is stopped. Esc exits a preview or screensaver.",30,503,480,42,9,FontStyle.Regular,Color.LightSteelBlue);
-        AddLabel("Wallpaper controls live in the system tray while running.",30,557,485,20,9,FontStyle.Regular,Color.FromArgb(138,151,173));
-        var menu=new ContextMenuStrip(); menu.Items.Add("Open controls",null,delegate { Show(); WindowState=FormWindowState.Normal; Activate(); });
-        menu.Items.Add("New pipe layout",null,delegate { foreach(var w in wallpapers) w.ResetScene(); });
-        menu.Items.Add("Stop wallpaper",null,delegate { StopWallpaper(); Show(); });
-        menu.Items.Add(new ToolStripSeparator()); menu.Items.Add("Exit Retro Pipes",null,delegate { StopWallpaper(); Close(); });
-        tray=new NotifyIcon { Icon=Icon,Text="Retro Pipes — live wallpaper",ContextMenuStrip=menu,Visible=false };
-        tray.DoubleClick+=delegate { Show(); Activate(); };
-        watch.Interval=2000; watch.Tick+=delegate {
-            if(wallpapers.Count>0 && (!Native.IsWindow(wallpapers[0].DesktopParent) || wallpapers.Count!=Screen.AllScreens.Length)) {
-                StopWallpaper(); Show(); status.Text="The desktop changed. Start the wallpaper again when ready.";
-            }
-        }; watch.Start();
-    }
-    Label AddLabel(string s,int x,int y,int w,int h,int size,FontStyle style,Color color) { var l=new Label { Text=s,Left=x,Top=y,Width=w,Height=h,Font=new Font("Segoe UI",size,style),ForeColor=color }; Controls.Add(l); return l; }
-    NumericUpDown AddNumber(TrackBar slider,int value,int max,int y,string name) {
-        var number=new NumericUpDown { Name=name,Left=420,Top=y,Width=83,Minimum=1,Maximum=max,Value=value,TextAlign=HorizontalAlignment.Right,BackColor=Color.FromArgb(36,47,66),ForeColor=Color.White };
-        bool syncing=false;
-        number.ValueChanged+=delegate { if(syncing) return; syncing=true; slider.Value=Math.Min(slider.Maximum,(int)number.Value); syncing=false; };
-        slider.ValueChanged+=delegate { if(syncing) return; syncing=true; number.Value=slider.Value; syncing=false; };
-        Controls.Add(number); return number;
-    }
-    void AddButton(string s,int x,int y,int w,EventHandler action) { var b=new Button { Text=s,Left=x,Top=y,Width=w,Height=42,FlatStyle=FlatStyle.Flat,BackColor=Color.FromArgb(36,47,66),ForeColor=Color.White }; b.FlatAppearance.BorderColor=Color.FromArgb(65,84,112); b.Click+=action; Controls.Add(b); }
-    void Save() { settings.Speed=(int)speedNumber.Value; settings.Count=(int)countNumber.Value; settings.Palette=palette.SelectedIndex; settings.Rotate=rotate.Checked; settings.RandomizeEachRun=randomize.Checked; if(persistSettings) settings.Save(); }
-    public void StartWallpaper() {
-        try {
-            Save(); StopWallpaper();
-            wallpaperLock=new System.Threading.Mutex(false,"Local\\RetroPipes.Wallpaper");
-            try { ownsWallpaperLock=wallpaperLock.WaitOne(0); } catch(System.Threading.AbandonedMutexException) { ownsWallpaperLock=true; }
-            if(!ownsWallpaperLock) throw new Exception("Retro Pipes wallpaper is already running. Open its system tray icon to control it.");
-            IntPtr host=Native.FindWallpaperHost();
-            if(host==IntPtr.Zero) throw new Exception("Windows did not expose a wallpaper surface. Try again after closing Task View. Window preview and screensaver are still available.");
-            var run=settings.ForRun(random);
-            foreach(var screen in Screen.AllScreens) { var w=new PipesWindow(run,"wallpaper",screen.Bounds,host); wallpapers.Add(w); w.Show(); }
-            status.Text="Wallpaper running: speed "+run.Speed+", "+run.Count+" pipes. Use the tray icon for controls.";
-            tray.Visible=true; Hide(); tray.ShowBalloonTip(2500,"Retro Pipes is running","Right-click the Retro Pipes tray icon for controls or to stop.",ToolTipIcon.Info);
-        } catch(Exception e) { StopWallpaper(); MessageBox.Show(this,e.Message,"Wallpaper",MessageBoxButtons.OK,MessageBoxIcon.Information); }
-    }
-    void StopWallpaper() {
-        foreach(var w in wallpapers) w.Close(); wallpapers.Clear();
-        if(wallpaperLock!=null) { if(ownsWallpaperLock) wallpaperLock.ReleaseMutex(); wallpaperLock.Dispose(); wallpaperLock=null; ownsWallpaperLock=false; }
-        tray.Visible=false; status.Text="Wallpaper is stopped. Your original background is unchanged.";
-    }
-    protected override void OnFormClosing(FormClosingEventArgs e) { Save(); StopWallpaper(); watch.Dispose(); tray.Dispose(); base.OnFormClosing(e); }
-}
-
 struct Cell : IEquatable<Cell> {
     public int X,Y,Z;
     public Cell(int x,int y,int z) { X=x;Y=y;Z=z; }
@@ -146,7 +93,7 @@ struct Cell : IEquatable<Cell> {
     public override bool Equals(object o) { return o is Cell && Equals((Cell)o); }
     public override int GetHashCode() { return (X+32)*4096+(Y+32)*64+Z+32; }
 }
-class Segment { public Cell A,B; public Color Color; public bool Joint; }
+class Segment { public Cell A,B; public Color Color; public bool Joint,Teapot; }
 class Pipe { public Cell At,Direction; public Color Color; public Segment Growing; public double Progress; public bool Dead; }
 class Scene {
     public List<Segment> Segments=new List<Segment>(); public List<Pipe> Pipes=new List<Pipe>();
@@ -171,7 +118,8 @@ class Scene {
         Cell dir=choices[rng.Next(choices.Count)];
         if(choices.Contains(p.Direction)&&rng.NextDouble()<0.48) dir=p.Direction;
         Cell next=p.At+dir; Occupied.Add(next);
-        p.Growing=new Segment { A=p.At,B=next,Color=p.Color,Joint=!dir.Equals(p.Direction) };
+        bool joint=!dir.Equals(p.Direction);
+        p.Growing=new Segment { A=p.At,B=next,Color=p.Color,Joint=joint,Teapot=settings.Teapots&&joint&&rng.NextDouble()*100<settings.TeapotChance };
         p.Direction=dir; p.Progress=0;
     }
     public void Step(double dt) {
@@ -192,11 +140,15 @@ class Scene {
 }
 
 class PipesWindow : Form {
-    Settings settings; string mode; Rectangle bounds; public IntPtr DesktopParent;
-    IntPtr dc,rc,quad; uint sphere,cylinder; Timer timer; Stopwatch clock=new Stopwatch(); double last; Point mouse; bool cursorHidden;
+    Settings settings,template; Random runRandom=new Random(Guid.NewGuid().GetHashCode()); string mode; Rectangle bounds; public IntPtr DesktopParent;
+    IntPtr dc,rc,quad; uint sphere,cylinder,teapot; Timer timer; Stopwatch clock=new Stopwatch(); double last; Point mouse; bool cursorHidden;
+    internal Effects Effects; double effectDuration;
+    internal Settings CurrentSettings { get { return settings; } }
+    public string Description { get { return (settings.Pipes?"Pipes ":"")+(settings.Fireworks?"Fireworks ":"")+(settings.Bubbles?"Bubbles ":"")+"| speed "+settings.Speed+", pipes "+settings.Count+", colour "+new[]{"Classic","Electric","Chrome"}[settings.Palette]+", rotation "+(settings.Rotate?"on":"off"); } }
     public Scene Scene; public string Renderer; bool ready; bool paused;
-    public PipesWindow(Settings s,string m,Rectangle b,IntPtr parent) {
-        settings=new Settings {Speed=s.Speed,Count=s.Count,Palette=s.Palette,Rotate=s.Rotate}; mode=m; bounds=b; DesktopParent=parent;
+    public PipesWindow(Settings s,string m,Rectangle b,IntPtr parent,int? seed=null) {
+        if(seed.HasValue) runRandom=new Random(seed.Value);
+        template=s.Copy(); template.Validate(); settings=template.Copy(); mode=m; bounds=b; DesktopParent=parent;
         Text="Retro Pipes — Space: pause · R: new layout · Esc: close"; BackColor=Color.Black;
         SetStyle(ControlStyles.Opaque|ControlStyles.AllPaintingInWmPaint|ControlStyles.UserPaint,true);
         if(m=="window" || m=="test") { ClientSize=b.Size; StartPosition=m=="test"?FormStartPosition.Manual:FormStartPosition.CenterScreen; if(m=="test") Location=new Point(-16000,-16000); }
@@ -232,10 +184,11 @@ class PipesWindow : Form {
         GL.glLightModelfv(0x0B53,new float[]{0.22f,0.22f,0.25f,1});
         GL.glMaterialfv(0x0408,0x1202,new float[]{0.95f,0.95f,0.95f,1}); GL.glMaterialf(0x0408,0x1601,76);
         quad=GL.gluNewQuadric(); if(quad==IntPtr.Zero) throw new Exception("OpenGL geometry creation failed."); GL.gluQuadricNormals(quad,100000);
-        sphere=GL.glGenLists(2); if(sphere==0) throw new Exception("OpenGL geometry cache creation failed."); cylinder=sphere+1;
+        sphere=GL.glGenLists(3); if(sphere==0) throw new Exception("OpenGL geometry cache creation failed."); cylinder=sphere+1; teapot=sphere+2;
         GL.glNewList(sphere,0x1300); GL.gluSphere(quad,1,18,12); GL.glEndList();
         GL.glNewList(cylinder,0x1300); GL.gluCylinder(quad,1,1,1,18,1); GL.glEndList();
-        Scene=new Scene(settings,Environment.TickCount^Handle.GetHashCode(),Math.Max(0.4,(double)ClientSize.Width/Math.Max(1,ClientSize.Height)));
+        GL.glNewList(teapot,0x1300); Teapot.Draw(); GL.glEndList();
+        ResetScene();
         ready=true; mouse=Cursor.Position; clock.Start();
         if(mode=="saver") { Cursor.Hide(); cursorHidden=true; }
         timer=new Timer { Interval=mode=="wallpaper"||mode=="preview"?33:16 };
@@ -244,11 +197,23 @@ class PipesWindow : Form {
             if(mode=="saver"&&now>0.8&&(Math.Abs(Cursor.Position.X-mouse.X)>6||Math.Abs(Cursor.Position.Y-mouse.Y)>6)) { Application.Exit(); return; }
             if(mode=="preview"&&!Native.IsWindow(DesktopParent)) { Close(); return; }
             if(WindowState==FormWindowState.Minimized) return;
-            if(!paused) Scene.Step(dt); Invalidate();
+            if(!paused) Advance(dt); Invalidate();
         };
         if(mode!="test") timer.Start();
     }
-    public void ResetScene() { if(Scene!=null) Scene.Reset(); }
+    public void ResetScene() {
+        settings=template.ForRun(runRandom);
+        double aspect=Math.Max(0.4,(double)ClientSize.Width/Math.Max(1,ClientSize.Height));
+        Scene=new Scene(settings,runRandom.Next(),aspect); Effects=new Effects(settings,runRandom.Next(),aspect);
+        effectDuration=35+runRandom.NextDouble()*25;
+    }
+    internal void Advance(double dt) {
+        if(settings.Pipes) {
+            int cycle=Scene.Resets; Scene.Step(dt);
+            if(Scene.Resets!=cycle) { ResetScene(); return; }
+        } else { Scene.Age+=dt; if(Scene.Age>=effectDuration) { ResetScene(); return; } }
+        Effects.Step(dt);
+    }
     protected override void OnPaintBackground(PaintEventArgs e) { }
     protected override void OnPaint(PaintEventArgs e) { if(ready) Draw(true); }
     void Ball(double x,double y,double z,double radius) { GL.glPushMatrix(); GL.glTranslated(x,y,z); GL.glScaled(radius,radius,radius); GL.glCallList(sphere); GL.glPopMatrix(); }
@@ -258,7 +223,8 @@ class PipesWindow : Form {
         GL.glPushMatrix(); GL.glTranslated(s.A.X,s.A.Y,s.A.Z);
         if(dx!=0) GL.glRotated(dx*90,0,1,0); else if(dy!=0) GL.glRotated(-dy*90,1,0,0); else if(dz<0) GL.glRotated(180,1,0,0);
         GL.glScaled(r,r,Math.Max(0.001,progress)); GL.glCallList(cylinder); GL.glPopMatrix();
-        Ball(s.A.X,s.A.Y,s.A.Z,s.Joint?r*1.15:r);
+        if(s.Teapot) { GL.glPushMatrix(); GL.glTranslated(s.A.X,s.A.Y,s.A.Z); GL.glRotated(25,0,1,0); GL.glScaled(0.20,0.20,0.20); GL.glCallList(teapot); GL.glPopMatrix(); }
+        else Ball(s.A.X,s.A.Y,s.A.Z,s.Joint?r*1.15:r);
         Ball(s.A.X+dx*progress,s.A.Y+dy*progress,s.A.Z+dz*progress,r);
     }
     public void Draw(bool swap) {
@@ -267,8 +233,11 @@ class PipesWindow : Form {
         GL.glMatrixMode(0x1701); GL.glLoadIdentity(); double top=0.41421356; GL.glFrustum(-top*aspect,top*aspect,-top,top,1,100);
         GL.glMatrixMode(0x1700); GL.glLoadIdentity(); GL.glLightfv(0x4000,0x1203,new float[]{-5,8,15,1});
         GL.glTranslated(0,0,-27); GL.glRotated(13,1,0,0); GL.glRotated(settings.Rotate?Scene.Age*2: -15,0,1,0);
-        foreach(var s in Scene.Segments) DrawSegment(s,1);
-        foreach(var p in Scene.Pipes) if(p.Growing!=null) DrawSegment(p.Growing,Math.Min(1,p.Progress));
+        if(settings.Pipes) {
+            foreach(var s in Scene.Segments) DrawSegment(s,1);
+            foreach(var p in Scene.Pipes) if(p.Growing!=null) DrawSegment(p.Growing,Math.Min(1,p.Progress));
+        }
+        Effects.Draw(aspect);
         GL.glFlush(); if(swap) Native.SwapBuffers(dc);
     }
     public void SaveFrame(string path) {
@@ -284,7 +253,7 @@ class PipesWindow : Form {
     }
     protected override void OnFormClosed(FormClosedEventArgs e) {
         ready=false; if(timer!=null) timer.Dispose(); if(cursorHidden) Cursor.Show();
-        if(rc!=IntPtr.Zero) { GL.wglMakeCurrent(dc,rc); if(sphere!=0) GL.glDeleteLists(sphere,2); if(quad!=IntPtr.Zero) GL.gluDeleteQuadric(quad); GL.wglMakeCurrent(IntPtr.Zero,IntPtr.Zero); GL.wglDeleteContext(rc); }
+        if(rc!=IntPtr.Zero) { GL.wglMakeCurrent(dc,rc); if(sphere!=0) GL.glDeleteLists(sphere,3); if(quad!=IntPtr.Zero) GL.gluDeleteQuadric(quad); GL.wglMakeCurrent(IntPtr.Zero,IntPtr.Zero); GL.wglDeleteContext(rc); }
         if(dc!=IntPtr.Zero) Native.ReleaseDC(Handle,dc); base.OnFormClosed(e);
         if(mode=="saver") Application.Exit();
     }
@@ -293,6 +262,31 @@ class PipesWindow : Form {
 static class Tests {
     public static void Run(string dir) {
         Directory.CreateDirectory(dir); var log=new List<string>();
+        var selective=new Settings {Speed=30,Count=20,Palette=1,Rotate=true,RandomizeEachRun=true,RandomSpeed=false,RandomCount=false,RandomPalette=false,RandomRotation=true,RotationChance=0};
+        var noRotation=selective.ForRun(new Random(19));
+        if(noRotation.Rotate||noRotation.Speed!=30||noRotation.Count!=20||noRotation.Palette!=1) throw new Exception("Selective randomization changed an unchecked option");
+        selective.RotationChance=100;
+        if(!selective.ForRun(new Random(19)).Rotate) throw new Exception("100% rotation chance failed");
+        selective.RandomPipes=selective.RandomFireworks=selective.RandomBubbles=true;
+        selective.PipesChance=0; selective.FireworksChance=100; selective.BubblesChance=100;
+        var overlay=selective.ForRun(new Random(5));
+        if(overlay.Pipes||!overlay.Fireworks||!overlay.Bubbles) throw new Exception("Layer chance endpoints failed");
+        selective.FireworksChance=selective.BubblesChance=0;
+        var fallback=selective.ForRun(new Random(5));
+        if(!fallback.Pipes&&!fallback.Fireworks&&!fallback.Bubbles) throw new Exception("Random cycle produced an empty screen");
+        using(var oldXml=new StringReader("<Settings><Speed>10</Speed><Count>6</Count><Palette>2</Palette><RandomizeEachRun>true</RandomizeEachRun></Settings>")) {
+            var migrated=(Settings)new XmlSerializer(typeof(Settings)).Deserialize(oldXml);
+            if(!migrated.RandomSpeed||!migrated.RandomPalette||!migrated.Pipes||migrated.RandomFireworks) throw new Exception("Legacy settings migration changed existing choices");
+        }
+        log.Add("PASS: selective random controls, chance endpoints, nonempty layer fallback and legacy settings migration.");
+        var teapotScene=new Scene(new Settings {TeapotChance=100},23,1.6);
+        for(int i=0;i<200;i++) teapotScene.Step(0.03);
+        int teapotCount=0; foreach(var segment in teapotScene.Segments) if(segment.Teapot) teapotCount++;
+        if(teapotCount==0) throw new Exception("Teapot easter egg was never generated");
+        var noTeapots=new Scene(new Settings {Teapots=false,TeapotChance=100},23,1.6);
+        for(int i=0;i<200;i++) noTeapots.Step(0.03);
+        foreach(var segment in noTeapots.Segments) if(segment.Teapot) throw new Exception("Disabled teapot still generated");
+        log.Add("PASS: teapot chance and disable switch.");
         for(int theme=0;theme<3;theme++) {
             var starts=new HashSet<int>(); var resets=new HashSet<int>();
             var single=new Scene(new Settings {Count=1,Palette=theme},77,1.6);
@@ -345,6 +339,42 @@ static class Tests {
             if(scene.Resets<2) throw new Exception("Scene did not cycle");
         }
         log.Add("PASS: 180,000 simulation updates across 30 seeds; axis alignment, unique endpoints, bounds, automatic reset.");
+        for(int mask=1;mask<=7;mask++) {
+            var modes=new Settings {Pipes=(mask&1)!=0,Fireworks=(mask&2)!=0,Bubbles=(mask&4)!=0,TeapotChance=mask==1?25:0.5,FireworkRate=6};
+            using(var w=new PipesWindow(modes,"test",new Rectangle(0,0,1200,750),IntPtr.Zero,101)) {
+                w.Show(); Application.DoEvents();
+                for(int i=0;i<420;i++) w.Advance(0.02);
+                w.SaveFrame(Path.Combine(dir,"Layers-"+mask+".png"));
+                if(modes.Fireworks&&w.Effects.Sparks.Count==0) throw new Exception("Fireworks did not burst");
+                if(!modes.Fireworks&&w.Effects.Sparks.Count!=0) throw new Exception("Disabled fireworks still simulated");
+                if(w.Effects.Bubbles.Count!=(modes.Bubbles?modes.BubbleCount:0)) throw new Exception("Bubble layer count is wrong");
+                w.Close();
+            }
+        }
+        log.Add("PASS: all seven single/overlapping layer combinations render without OpenGL errors.");
+        var randomTemplate=new Settings {RandomizeEachRun=true,Count=20,Speed=30,RandomPipes=true,RandomFireworks=true,RandomBubbles=true};
+        var screens=new List<PipesWindow>(); var combinations=new HashSet<string>(); var perScreenCounts=new HashSet<int>();
+        try {
+            for(int i=0;i<3;i++) { var w=new PipesWindow(randomTemplate,"test",new Rectangle(0,0,320,200),IntPtr.Zero,501+i*137); screens.Add(w); w.Show(); }
+            var initialCounts=new HashSet<int>(); var initialPalettes=new HashSet<int>();
+            foreach(var w in screens) { initialCounts.Add(w.CurrentSettings.Count); initialPalettes.Add(w.CurrentSettings.Palette); }
+            if(initialCounts.Count<2||initialPalettes.Count<2) throw new Exception("Initial monitor rolls still share count or colour");
+            for(int cycle=0;cycle<12;cycle++) {
+                foreach(var w in screens) {
+                    combinations.Add(w.Description); perScreenCounts.Add(w.CurrentSettings.Count);
+                    if(object.ReferenceEquals(w.CurrentSettings,randomTemplate)) throw new Exception("A screen shares mutable template settings");
+                    // Advance far enough for both pipe scenes and standalone effects to cycle.
+                    for(int frame=0;frame<1150;frame++) w.Advance(0.1);
+                }
+            }
+            if(combinations.Count<24||perScreenCounts.Count<8) throw new Exception("Monitor settings are not independently re-rolled");
+        } finally { foreach(var w in screens) w.Close(); }
+        log.Add("PASS: three simultaneous screen windows independently roll settings across automatic cycles.");
+        var effectsStress=new Effects(new Settings {Fireworks=true,Bubbles=true,FireworkRate=30,BubbleCount=100},43,1.6);
+        for(int i=0;i<5000;i++) effectsStress.Step(0.02);
+        if(effectsStress.Sparks.Count>3500||effectsStress.Rockets.Count>100||effectsStress.Bubbles.Count!=100) throw new Exception("Effect counts are unbounded");
+        foreach(var bubble in effectsStress.Bubbles) if(double.IsNaN(bubble.X)||double.IsNaN(bubble.Y)) throw new Exception("Bubble physics became invalid");
+        log.Add("PASS: 100-second maximum-intensity effects simulation remains bounded.");
         var sw=Stopwatch.StartNew();
         using(var w=new PipesWindow(new Settings(),"test",new Rectangle(0,0,1200,750),IntPtr.Zero)) {
             w.Show(); Application.DoEvents(); w.Scene=new Scene(new Settings(),21,1.6);
@@ -386,6 +416,8 @@ static class Tests {
         }
         if(uiSettings.Speed!=42||uiSettings.Count!=30) throw new Exception("Closing controls lost above-slider values");
         log.Add("PASS: launcher controls render and close cleanly.");
+        using(var resource=System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream("RetroPipes.ThirdPartyNotices"))
+            if(resource==null||resource.Length==0) throw new Exception("Teapot data license is missing from binary");
         File.WriteAllLines(Path.Combine(dir,"test-results.txt"),log.ToArray());
     }
 }
@@ -433,6 +465,16 @@ static class Native {
 }
 
 static class GL {
+    [DllImport("opengl32.dll")] public static extern void glBegin(uint mode);
+    [DllImport("opengl32.dll")] public static extern void glEnd();
+    [DllImport("opengl32.dll")] public static extern void glVertex3d(double x,double y,double z);
+    [DllImport("opengl32.dll")] public static extern void glNormal3d(double x,double y,double z);
+    [DllImport("opengl32.dll")] public static extern void glColor4f(float r,float g,float b,float a);
+    [DllImport("opengl32.dll")] public static extern void glDisable(uint cap);
+    [DllImport("opengl32.dll")] public static extern void glBlendFunc(uint source,uint destination);
+    [DllImport("opengl32.dll")] public static extern void glLineWidth(float width);
+    [DllImport("opengl32.dll")] public static extern void glPointSize(float size);
+    [DllImport("opengl32.dll")] public static extern void glOrtho(double left,double right,double bottom,double top,double near,double far);
     [DllImport("opengl32.dll")] public static extern IntPtr wglCreateContext(IntPtr dc);
     [DllImport("opengl32.dll")] public static extern bool wglMakeCurrent(IntPtr dc,IntPtr rc);
     [DllImport("opengl32.dll")] public static extern bool wglDeleteContext(IntPtr rc);
