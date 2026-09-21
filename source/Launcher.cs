@@ -7,28 +7,28 @@ using System.Reflection;
 using System.Windows.Forms;
 
 namespace RetroPipes {
-class Launcher : Form {
-    Settings settings; TrackBar speed,count; internal NumericUpDown speedNumber,countNumber;
+class Launcher : XpForm {
+    Settings settings,activeTemplate; XpSlider speed,count; internal NumericUpDown speedNumber,countNumber;
     ComboBox palette; CheckBox rotate,randomize,pipes,fireworks,bubbles,teapots; internal CheckBox spanScreens;
     CheckBox randSpeed,randCount,randPalette,randRotation,randPipes,randFireworks,randBubbles,randDensity;
     NumericUpDown rotationChance,pipesChance,fireworksChance,bubblesChance,teapotChance,fireworkRate,bubbleCount;
-    bool persistSettings,activeSpan; Rectangle[] activeDisplays; NotifyIcon tray; Label status; Timer watch=new Timer();
+    bool persistSettings,activeSpan,wallpaperRequested; Rectangle[] activeDisplays; NotifyIcon tray; Label status,displayStatus; Timer watch=new Timer(); Image wordmark;
     List<PipesWindow> wallpapers=new List<PipesWindow>();
     System.Threading.Mutex wallpaperLock; bool ownsWallpaperLock;
     public Launcher(Settings value) : this(value,true) { }
     internal Launcher(Settings value,bool persist) {
         settings=value; settings.Validate(); persistSettings=persist;
-        Text="Retro Pipes"; ClientSize=new Size(790,717); FormBorderStyle=FormBorderStyle.FixedDialog;
+        Text="Retro Pipes"; ClientSize=new Size(790,777);
         MaximizeBox=false; StartPosition=FormStartPosition.CenterScreen;
-        BackColor=Color.FromArgb(17,20,29); ForeColor=Color.White; Font=new Font("Segoe UI",10);
+        BackColor=XpTheme.Cream; ForeColor=XpTheme.Ink; Font=new Font("Tahoma",9);
         Icon=Icon.ExtractAssociatedIcon(Application.ExecutablePath);
-        Label("RETRO PIPES",26,20,650,42,25,Color.White);
-        var credits=new LinkLabel {Text="Credits",Left=700,Top=34,Width=60,Height=22,LinkColor=Color.LightSteelBlue};
+        Label("Retro Pipes",26,22,440,40,22,Color.White);
+        var credits=new LinkLabel {Text="Credits",Left=700,Top=712,Width=60,Height=22,LinkColor=Color.FromArgb(0,51,153)};
         credits.LinkClicked+=delegate {
             using(var stream=Assembly.GetExecutingAssembly().GetManifestResourceStream("RetroPipes.ThirdPartyNotices"))
             using(var reader=new StreamReader(stream)) MessageBox.Show(reader.ReadToEnd(),"Retro Pipes — third-party credits");
         }; Controls.Add(credits); credits.BringToFront();
-        Label("Pipes, sparks & soap bubbles. Separate screens or one shared canvas.",29,69,710,25,11,Color.LightSteelBlue);
+        displayStatus=Label("",29,72,640,25,9,Color.LightSteelBlue); UpdateDisplayStatus();
         Button("Pipes only",30,106,165,delegate { Layers(true,false,false); });
         Button("Fireworks only",218,106,165,delegate { Layers(false,true,false); });
         Button("Bubbles only",406,106,165,delegate { Layers(false,false,true); });
@@ -60,7 +60,7 @@ class Launcher : Form {
         Button("Pipes random",410,505,110,delegate { RandomPreset(1); });
         Button("Mix random",529,505,110,delegate { RandomPreset(2); });
         Button("All random",649,505,110,delegate { RandomPreset(3); });
-        spanScreens=Check("Span all screens — one continuous scene, same growth speed",30,548,729,settings.SpanAllScreens);
+        spanScreens=Check("Span all detected screens — one continuous scene, same growth speed",30,548,729,settings.SpanAllScreens);
         var cycleHelp=Label("",30,585,729,42,9,Color.LightSteelBlue);
         EventHandler updateLayoutText=delegate {
             cycleHeading.Text=spanScreens.Checked?"RANDOM CYCLE · SHARED SCENE":"RANDOM CYCLE · EACH SCREEN";
@@ -71,19 +71,29 @@ class Launcher : Form {
         Button("Start wallpaper",406,639,165,delegate { StartWallpaper(); });
         Button("Stop wallpaper",594,639,165,delegate { StopWallpaper(); });
         status=Label("Ready. Wallpaper controls appear in the system tray while running.",30,684,729,24,9,Color.LightSteelBlue);
+        Label("Windows XP-inspired interface",30,712,500,20,8,Color.LightSteelBlue);
         var menu=new ContextMenuStrip(); menu.Items.Add("Open controls",null,delegate { Show(); WindowState=FormWindowState.Normal; Activate(); });
-        menu.Items.Add("Roll new scenes on every screen",null,delegate { foreach(var w in wallpapers) w.ResetScene(); });
+        menu.Items.Add("Roll new scenes on every screen",null,delegate { var owners=new HashSet<PipesWindow>(); foreach(var w in wallpapers) if(owners.Add(w.SceneOwner)) w.ResetScene(); });
         menu.Items.Add("Current screen settings",null,delegate {
-            var lines=new List<string>(); for(int i=0;i<wallpapers.Count;i++) lines.Add((activeSpan?"All screens":"Screen "+(i+1))+": "+wallpapers[i].Description);
+            var lines=new List<string>(); for(int i=0;i<wallpapers.Count;i++) { if(activeSpan&&i>0) break; lines.Add((activeSpan?"Shared across "+wallpapers.Count+" screens":"Screen "+(i+1))+": "+wallpapers[i].Description); }
             MessageBox.Show(string.Join("\n\n",lines.ToArray()),"Each screen's current settings");
         });
         menu.Items.Add("Stop wallpaper",null,delegate { StopWallpaper(); Show(); });
         menu.Items.Add(new ToolStripSeparator()); menu.Items.Add("Exit Retro Pipes",null,delegate { Close(); });
         tray=new NotifyIcon {Icon=Icon,Text="Retro Pipes — live wallpaper",ContextMenuStrip=menu,Visible=false};
         tray.DoubleClick+=delegate { Show(); Activate(); };
+        menu.Renderer=new ToolStripSystemRenderer();
         watch.Interval=2000; watch.Tick+=delegate {
-            if(wallpapers.Count>0&&(!Native.IsWindow(wallpapers[0].DesktopParent)||!DisplayLayout.Same(activeDisplays,DisplayLayout.Screens()))) { StopWallpaper(); Show(); status.Text="The desktop changed. Start the wallpaper again when ready."; }
+            UpdateDisplayStatus();
+            if(wallpaperRequested&&(wallpapers.Count==0||!Native.IsWindow(wallpapers[0].DesktopParent)||!DisplayLayout.Same(activeDisplays,DisplayLayout.Screens()))) {
+                try { RebuildWallpaperViews(); } catch { status.Text="Waiting for the Windows desktop. Wallpaper will resume automatically."; }
+            }
         }; watch.Start();
+        foreach(Control c in Controls) if(!(c is XpCaptionButton)) c.Top+=34;
+        using(var stream=Assembly.GetExecutingAssembly().GetManifestResourceStream("RetroPipes.WindowsXPWordmark"))
+        using(var original=Image.FromStream(stream)) wordmark=new Bitmap(original);
+        var logo=new PictureBox {Left=557,Top=55,Width=203,Height=47,SizeMode=PictureBoxSizeMode.Zoom,Image=wordmark,BackColor=XpTheme.Cream}; Controls.Add(logo);
+        var flag=new Panel {Left=493,Top=51,Width=58,Height=52,BackColor=XpTheme.Cream}; flag.Paint+=delegate(object sender,PaintEventArgs e) { e.Graphics.SmoothingMode=System.Drawing.Drawing2D.SmoothingMode.AntiAlias; XpTheme.Flag(e.Graphics,flag.ClientRectangle); }; Controls.Add(flag);
     }
     void Layers(bool p,bool f,bool b) { pipes.Checked=p; fireworks.Checked=f; bubbles.Checked=b; randPipes.Checked=randFireworks.Checked=randBubbles.Checked=false; }
     void RandomPreset(int preset) {
@@ -93,20 +103,21 @@ class Launcher : Form {
         randDensity.Checked=preset==3;
     }
     Label Label(string text,int x,int y,int width,int height,int size,Color color) {
-        var label=new Label {Text=text,Left=x,Top=y,Width=width,Height=height,Font=new Font("Segoe UI",size),ForeColor=color,UseMnemonic=false}; Controls.Add(label); return label;
+        var label=new Label {Text=text,Left=x,Top=y,Width=width,Height=height,Font=new Font("Tahoma",size,size>=18?FontStyle.Bold:FontStyle.Regular),ForeColor=color==Color.White?XpTheme.Ink:XpTheme.Blue,BackColor=XpTheme.Cream,UseMnemonic=false}; Controls.Add(label); return label;
     }
-    CheckBox Check(string text,int x,int y,int width,bool value) { var c=new CheckBox {Text=text,Left=x,Top=y,Width=width,Height=25,Checked=value}; Controls.Add(c); return c; }
-    TrackBar Slider(int y,int max,int value) { var s=new TrackBar {Left=142,Top=y,Width=155,Minimum=1,Maximum=max,Value=Math.Min(max,value),TickStyle=TickStyle.None}; Controls.Add(s); return s; }
+    CheckBox Check(string text,int x,int y,int width,bool value) { var c=new XpCheckBox {Text=text,Left=x,Top=y,Width=width,Height=25,Checked=value}; Controls.Add(c); return c; }
+    XpSlider Slider(int y,int max,int value) { var s=new XpSlider {Left=142,Top=y,Width=155,Minimum=1,Maximum=max,Value=Math.Min(max,value)}; Controls.Add(s); return s; }
     NumericUpDown Number(int x,int y,int width,int min,int max,decimal value,int decimals) {
-        var n=new NumericUpDown {Left=x,Top=y,Width=width,Minimum=min,Maximum=max,Value=value,DecimalPlaces=decimals,Increment=decimals>0?0.1m:1m,TextAlign=HorizontalAlignment.Right,BackColor=Color.FromArgb(36,47,66),ForeColor=Color.White}; Controls.Add(n); return n;
+        var n=new NumericUpDown {Left=x,Top=y,Width=width,Minimum=min,Maximum=max,Value=value,DecimalPlaces=decimals,Increment=decimals>0?0.1m:1m,TextAlign=HorizontalAlignment.Right,BackColor=Color.White,ForeColor=XpTheme.Ink}; Controls.Add(n); return n;
     }
     NumericUpDown Chance(int y,int value) { var n=Number(665,y,67,0,100,value,0); Label("%",737,y+3,25,23,10,Color.LightSteelBlue); return n; }
-    void Bind(TrackBar slider,NumericUpDown number) {
+    void Bind(XpSlider slider,NumericUpDown number) {
         bool syncing=false;
         number.ValueChanged+=delegate { if(syncing) return; syncing=true; slider.Value=Math.Min(slider.Maximum,(int)number.Value); syncing=false; };
         slider.ValueChanged+=delegate { if(syncing) return; syncing=true; number.Value=slider.Value; syncing=false; };
     }
-    void Button(string text,int x,int y,int width,EventHandler action) { var b=new Button {Text=text,Left=x,Top=y,Width=width,Height=35,FlatStyle=FlatStyle.Flat,BackColor=Color.FromArgb(36,47,66),ForeColor=Color.White}; b.FlatAppearance.BorderColor=Color.FromArgb(65,84,112); b.Click+=action; Controls.Add(b); }
+    void Button(string text,int x,int y,int width,EventHandler action) { var b=new XpButton {Text=text,Left=x,Top=y,Width=width,Height=35,BackColor=XpTheme.Cream,ForeColor=XpTheme.Ink}; b.Click+=action; Controls.Add(b); }
+    void UpdateDisplayStatus() { var displays=DisplayLayout.Screens(); var area=DisplayLayout.Union(displays); displayStatus.Text=displays.Length+" display"+(displays.Length==1?"":"s")+" detected  |  Desktop: "+area.Width+" x "+area.Height+"  |  Automatic layout updates"; }
     void Save() {
         settings.Speed=(int)speedNumber.Value; settings.Count=(int)countNumber.Value; settings.Palette=palette.SelectedIndex; settings.Rotate=rotate.Checked;
         settings.Pipes=pipes.Checked; settings.Fireworks=fireworks.Checked; settings.Bubbles=bubbles.Checked; settings.Teapots=teapots.Checked; settings.TeapotChance=(double)teapotChance.Value;
@@ -124,18 +135,24 @@ class Launcher : Form {
             Save(); StopWallpaper(); wallpaperLock=new System.Threading.Mutex(false,"Local\\RetroPipes.Wallpaper");
             try { ownsWallpaperLock=wallpaperLock.WaitOne(0); } catch(System.Threading.AbandonedMutexException) { ownsWallpaperLock=true; }
             if(!ownsWallpaperLock) throw new Exception("Retro Pipes wallpaper is already running. Open its system tray icon to control it.");
-            IntPtr host=Native.FindWallpaperHost(); if(host==IntPtr.Zero) throw new Exception("Windows did not expose a wallpaper surface. Try again after closing Task View.");
-            activeDisplays=DisplayLayout.Screens(); activeSpan=settings.SpanAllScreens;
-            foreach(var area in DisplayLayout.RenderBounds(activeSpan,activeDisplays)) { var w=new PipesWindow(settings,"wallpaper",area,host); wallpapers.Add(w); w.Show(); }
-            status.Text=activeSpan?"One continuous scene across "+activeDisplays.Length+" screens. Growth speed is unchanged.":"Running on "+wallpapers.Count+" screens. Each screen has its own random cycle.";
+            activeTemplate=settings.Copy(); wallpaperRequested=true; RebuildWallpaperViews();
             tray.Visible=true; Hide(); tray.ShowBalloonTip(2500,"Retro Pipes is running","Right-click the tray icon for controls, new scenes or current screen settings.",ToolTipIcon.Info);
         } catch(Exception e) { StopWallpaper(); MessageBox.Show(this,e.Message,"Wallpaper",MessageBoxButtons.OK,MessageBoxIcon.Information); }
     }
+    void RebuildWallpaperViews() {
+        foreach(var view in wallpapers) view.CloseForReconfigure(); wallpapers.Clear();
+        IntPtr host=Native.FindWallpaperHost(); if(host==IntPtr.Zero) throw new Exception("Windows did not expose a wallpaper surface. Try again after closing Task View.");
+        activeDisplays=DisplayLayout.Screens(); activeSpan=activeTemplate.SpanAllScreens;
+        wallpapers=PipesWindow.CreateViews(activeTemplate,"wallpaper",activeDisplays,host);
+        status.Text=activeSpan?"One continuous scene across "+activeDisplays.Length+" screens. Growth speed is unchanged.":"Running on "+wallpapers.Count+" screens. Each screen has its own random cycle.";
+    }
     void StopWallpaper() {
+        wallpaperRequested=false;
         foreach(var w in wallpapers) w.Close(); wallpapers.Clear();
         if(wallpaperLock!=null) { if(ownsWallpaperLock) wallpaperLock.ReleaseMutex(); wallpaperLock.Dispose(); wallpaperLock=null; ownsWallpaperLock=false; }
         tray.Visible=false; status.Text="Wallpaper is stopped. Your original background is unchanged.";
     }
     protected override void OnFormClosing(FormClosingEventArgs e) { Save(); StopWallpaper(); watch.Dispose(); tray.Dispose(); base.OnFormClosing(e); }
+    protected override void OnFormClosed(FormClosedEventArgs e) { if(wordmark!=null) wordmark.Dispose(); base.OnFormClosed(e); }
 }
 }

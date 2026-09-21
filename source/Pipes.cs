@@ -65,8 +65,7 @@ static class Program {
             string mode=args.Length==0 ? "" : args[0].ToLowerInvariant();
             if(mode=="--self-test") { Tests.Run(args.Length>1?args[1]:"."); return; }
             if(mode=="/s" || mode=="--screensaver") {
-                foreach(var area in DisplayLayout.RenderBounds(settings.SpanAllScreens,DisplayLayout.Screens())) new PipesWindow(settings,"saver",area,IntPtr.Zero).Show();
-                Application.Run(); return;
+                using(var session=new ScreenSaverSession(settings)) Application.Run(session); return;
             }
             if(mode.StartsWith("/p")) {
                 long id; string value=mode.Contains(":")?mode.Substring(mode.IndexOf(':')+1):(args.Length>1?args[1]:"");
@@ -107,9 +106,9 @@ class Scene {
     static readonly Color[][] palettes={ new[]{Color.FromArgb(230,36,53),Color.FromArgb(30,186,70),Color.FromArgb(35,95,240),Color.FromArgb(246,189,30),Color.FromArgb(190,42,225),Color.FromArgb(14,196,206),Color.FromArgb(245,108,24)}, new[]{Color.FromArgb(0,217,233),Color.FromArgb(248,32,143),Color.FromArgb(135,64,240),Color.FromArgb(62,238,191)},new[]{Color.FromArgb(178,196,215),Color.FromArgb(210,216,224),Color.FromArgb(136,163,195)} };
     public Scene(Settings s,int seed,double aspect,double heightScale=1) {
         settings=s; rng=new Random(seed);
-        halfX=s.SpanAllScreens?Math.Max(5,Math.Min(512,(int)(aspect*heightScale*9.2))):Math.Max(5,Math.Min(20,(int)(aspect*6.4)));
-        halfY=s.SpanAllScreens?Math.Max(6,Math.Min(256,(int)(heightScale*8.0))):6;
-        target=halfX*40*halfY/6; Reset();
+        halfX=s.SpanAllScreens?Math.Max(5,(int)(aspect*heightScale*9.2)):Math.Max(5,Math.Min(20,(int)(aspect*6.4)));
+        halfY=s.SpanAllScreens?Math.Max(6,(int)(heightScale*8.0)):6;
+        target=(int)Math.Min(int.MaxValue,(long)halfX*40*halfY/6); Reset();
     }
     public void Reset() {
         Segments.Clear(); Pipes.Clear(); Occupied.Clear(); Age=0; hold=0; Resets++;
@@ -152,16 +151,16 @@ class PipesWindow : Form {
     Settings settings,template; Random runRandom=new Random(Guid.NewGuid().GetHashCode()); string mode; Rectangle bounds; public IntPtr DesktopParent;
     IntPtr dc,rc,quad; uint sphere,cylinder,teapot; Timer timer; Stopwatch clock=new Stopwatch(); double last; Point mouse; bool cursorHidden;
     internal Effects Effects; double effectDuration,worldHeightScale=1;
-    internal Settings CurrentSettings { get { return settings; } }
-    public string Description { get { return (settings.Pipes?"Pipes ":"")+(settings.Fireworks?"Fireworks ":"")+(settings.Bubbles?"Bubbles ":"")+"| speed "+settings.Speed+", pipes "+settings.Count+", colour "+new[]{"Classic","Electric","Chrome"}[settings.Palette]+", rotation "+(settings.Rotate?"on":"off"); } }
+    PipesWindow sceneOwner; Rectangle? sharedCanvas; bool reconfiguring; event Action FrameReady;
+    internal PipesWindow SceneOwner { get { return sceneOwner??this; } }
+    internal Settings CurrentSettings { get { return SceneOwner.settings; } }
+    public string Description { get { var s=CurrentSettings; return (s.Pipes?"Pipes ":"")+(s.Fireworks?"Fireworks ":"")+(s.Bubbles?"Bubbles ":"")+"| speed "+s.Speed+", pipes "+s.Count+", colour "+new[]{"Classic","Electric","Chrome"}[s.Palette]+", rotation "+(s.Rotate?"on":"off"); } }
     public Scene Scene; public string Renderer; bool ready; bool paused;
-    public PipesWindow(Settings s,string m,Rectangle b,IntPtr parent,int? seed=null) {
+    public PipesWindow(Settings s,string m,Rectangle b,IntPtr parent,int? seed=null,PipesWindow owner=null,Rectangle? canvas=null) {
+        sceneOwner=owner; sharedCanvas=canvas;
         if(seed.HasValue) runRandom=new Random(seed.Value);
         template=s.Copy(); template.Validate(); settings=template.Copy(); mode=m; bounds=b; DesktopParent=parent;
-        if(s.SpanAllScreens) {
-            var desktop=DisplayLayout.Union(DisplayLayout.Screens());
-            MaximumSize=new Size(Math.Max(desktop.Width,b.Width)+100,Math.Max(desktop.Height,b.Height)+100);
-        }
+        MaximumSize=new Size(b.Width+100,b.Height+100);
         Text="Retro Pipes — Space: pause · R: new layout · Esc: close"; BackColor=Color.Black;
         SetStyle(ControlStyles.Opaque|ControlStyles.AllPaintingInWmPaint|ControlStyles.UserPaint,true);
         if(m=="test") FormBorderStyle=FormBorderStyle.None;
@@ -202,7 +201,7 @@ class PipesWindow : Form {
         GL.glNewList(sphere,0x1300); GL.gluSphere(quad,1,18,12); GL.glEndList();
         GL.glNewList(cylinder,0x1300); GL.gluCylinder(quad,1,1,1,18,1); GL.glEndList();
         GL.glNewList(teapot,0x1300); Teapot.Draw(); GL.glEndList();
-        ResetScene();
+        if(sceneOwner==null) ResetScene(); else sceneOwner.FrameReady+=OnSharedFrame;
         ready=true; mouse=Cursor.Position; clock.Start();
         if(mode=="saver") { Cursor.Hide(); cursorHidden=true; }
         timer=new Timer { Interval=mode=="wallpaper"||mode=="preview"?33:16 };
@@ -211,22 +210,36 @@ class PipesWindow : Form {
             if(mode=="saver"&&now>0.8&&(Math.Abs(Cursor.Position.X-mouse.X)>6||Math.Abs(Cursor.Position.Y-mouse.Y)>6)) { Application.Exit(); return; }
             if(mode=="preview"&&!Native.IsWindow(DesktopParent)) { Close(); return; }
             if(WindowState==FormWindowState.Minimized) return;
-            if(!paused) Advance(dt); Invalidate();
+            if(!paused) Advance(dt); Invalidate(); if(FrameReady!=null) FrameReady();
         };
-        if(mode!="test") timer.Start();
+        if(mode!="test"&&sceneOwner==null) timer.Start();
     }
+    void OnSharedFrame() { if(!IsDisposed) Invalidate(); }
+    internal static List<PipesWindow> CreateViews(Settings settings,string mode,Rectangle[] screens,IntPtr parent) {
+        var result=new List<PipesWindow>(); Rectangle canvas=DisplayLayout.Union(screens);
+        try {
+            foreach(var area in DisplayLayout.RenderBounds(settings.SpanAllScreens,screens)) {
+                var view=new PipesWindow(settings,mode,area,parent,null,settings.SpanAllScreens&&result.Count>0?result[0]:null,settings.SpanAllScreens?(Rectangle?)canvas:null);
+                result.Add(view); view.Show();
+            }
+            return result;
+        } catch { foreach(var view in result) view.CloseForReconfigure(); throw; }
+    }
+    internal void CloseForReconfigure() { reconfiguring=true; Close(); }
     public void ResetScene() {
+        if(sceneOwner!=null) { sceneOwner.ResetScene(); return; }
         settings=template.ForRun(runRandom);
         double aspect=Math.Max(0.4,(double)ClientSize.Width/Math.Max(1,ClientSize.Height));
         if(settings.SpanAllScreens) {
-            var desktop=DisplayLayout.Union(DisplayLayout.Screens());
+            var desktop=sharedCanvas??DisplayLayout.Union(DisplayLayout.Screens());
             worldHeightScale=(double)desktop.Height/Math.Max(1,Screen.PrimaryScreen.Bounds.Height);
-            if(mode=="window"||mode=="preview") aspect=(double)desktop.Width/desktop.Height;
+            if(sharedCanvas.HasValue||mode=="window"||mode=="preview") aspect=(double)desktop.Width/desktop.Height;
         }
         Scene=new Scene(settings,runRandom.Next(),aspect,worldHeightScale); Effects=new Effects(settings,runRandom.Next(),aspect);
         effectDuration=35+runRandom.NextDouble()*25;
     }
     internal void Advance(double dt) {
+        if(sceneOwner!=null) return;
         if(settings.Pipes) {
             int cycle=Scene.Resets; Scene.Step(dt);
             if(Scene.Resets!=cycle) { ResetScene(); return; }
@@ -247,6 +260,7 @@ class PipesWindow : Form {
         Ball(s.A.X+dx*progress,s.A.Y+dy*progress,s.A.Z+dz*progress,r);
     }
     public void Draw(bool swap) {
+        var source=SceneOwner; var settings=source.settings; var Scene=source.Scene; var Effects=source.Effects;
         GL.wglMakeCurrent(dc,rc); int w=Math.Max(1,ClientSize.Width),h=Math.Max(1,ClientSize.Height); double aspect=(double)w/h;
         GL.glViewport(0,0,w,h); GL.glClearColor(0,0,0,1); GL.glClear(0x4100);
         GL.glMatrixMode(0x1701); GL.glLoadIdentity(); double top=0.41421356;
@@ -254,9 +268,12 @@ class PipesWindow : Form {
         if(settings.SpanAllScreens) {
             // Orthographic panorama keeps the same central pipe scale and avoids
             // ultra-wide perspective distortion. No time or growth-rate multiplier.
-            double halfHeight=27*top*worldHeightScale;
+            double halfHeight=27*top*source.worldHeightScale;
             cameraDistance=30+Scene.HalfWidth+Scene.HalfHeight;
-            GL.glOrtho(-halfHeight*aspect,halfHeight*aspect,-halfHeight,halfHeight,1,cameraDistance*2+30);
+            if(sharedCanvas.HasValue) {
+                var clip=DisplayLayout.Slice(sharedCanvas.Value,bounds,halfHeight);
+                GL.glOrtho(clip[0],clip[1],clip[2],clip[3],1,cameraDistance*2+30);
+            } else GL.glOrtho(-halfHeight*aspect,halfHeight*aspect,-halfHeight,halfHeight,1,cameraDistance*2+30);
         } else GL.glFrustum(-top*aspect,top*aspect,-top,top,1,100);
         GL.glMatrixMode(0x1700); GL.glLoadIdentity(); GL.glLightfv(0x4000,0x1203,new float[]{-5,8,15,1});
         GL.glTranslated(0,0,-cameraDistance); GL.glRotated(13,1,0,0); GL.glRotated(settings.Rotate?Scene.Age*2: -15,0,1,0);
@@ -264,7 +281,8 @@ class PipesWindow : Form {
             foreach(var s in Scene.Segments) DrawSegment(s,1);
             foreach(var p in Scene.Pipes) if(p.Growing!=null) DrawSegment(p.Growing,Math.Min(1,p.Progress));
         }
-        Effects.Draw(aspect);
+        if(sharedCanvas.HasValue) Effects.Draw((double)sharedCanvas.Value.Width/sharedCanvas.Value.Height,DisplayLayout.Slice(sharedCanvas.Value,bounds,1));
+        else Effects.Draw(aspect);
         GL.glFlush(); if(swap) Native.SwapBuffers(dc);
     }
     public void SaveFrame(string path) {
@@ -280,9 +298,10 @@ class PipesWindow : Form {
     }
     protected override void OnFormClosed(FormClosedEventArgs e) {
         ready=false; if(timer!=null) timer.Dispose(); if(cursorHidden) Cursor.Show();
+        if(sceneOwner!=null) sceneOwner.FrameReady-=OnSharedFrame;
         if(rc!=IntPtr.Zero) { GL.wglMakeCurrent(dc,rc); if(sphere!=0) GL.glDeleteLists(sphere,3); if(quad!=IntPtr.Zero) GL.gluDeleteQuadric(quad); GL.wglMakeCurrent(IntPtr.Zero,IntPtr.Zero); GL.wglDeleteContext(rc); }
         if(dc!=IntPtr.Zero) Native.ReleaseDC(Handle,dc); base.OnFormClosed(e);
-        if(mode=="saver") Application.Exit();
+        if(mode=="saver"&&!reconfiguring) Application.Exit();
     }
 }
 
@@ -291,7 +310,7 @@ static class Tests {
         Directory.CreateDirectory(dir); var log=new List<string>();
         var threeDisplays=new[]{new Rectangle(-2560,0,2560,1440),new Rectangle(0,0,2560,1440),new Rectangle(2560,0,2560,1440)};
         var joined=DisplayLayout.RenderBounds(true,threeDisplays);
-        if(joined.Length!=1||joined[0]!=new Rectangle(-2560,0,7680,1440)) throw new Exception("Spanning did not produce one full desktop canvas");
+        if(joined.Length!=3||DisplayLayout.Union(joined)!=new Rectangle(-2560,0,7680,1440)) throw new Exception("Spanning views did not cover the full desktop");
         var separate=DisplayLayout.RenderBounds(false,threeDisplays);
         if(!DisplayLayout.Same(separate,threeDisplays)) throw new Exception("Separate-screen layout changed");
         var stacked=DisplayLayout.Union(new[]{new Rectangle(0,-1440,2560,1440),new Rectangle(-1920,0,1920,1080),new Rectangle(0,0,2560,1440)});
@@ -312,7 +331,24 @@ static class Tests {
             var xml=new XmlSerializer(typeof(Settings)); xml.Serialize(savedSpan,spanningSettings); savedSpan.Position=0;
             if(!((Settings)xml.Deserialize(savedSpan)).SpanAllScreens) throw new Exception("Spanning setting was not persisted");
         }
-        log.Add("PASS: single full-desktop canvas, negative/stacked coordinates, unchanged growth speed/count, expanded capacity and natural cycle completion.");
+        log.Add("PASS: full-desktop scene with monitor-sized views, negative/stacked coordinates, unchanged growth speed/count, expanded capacity and natural cycle completion.");
+        foreach(int displayCount in new[]{1,2,3,4,6,8,16,32,64}) {
+            var layout=new Rectangle[displayCount];
+            for(int i=0;i<displayCount;i++) layout[i]=new Rectangle((i-displayCount/2)*3840,0,3840,2160);
+            var canvas=DisplayLayout.Union(layout); var views=DisplayLayout.RenderBounds(true,layout);
+            if(views.Length!=displayCount) throw new Exception("Monitor count is capped");
+            for(int i=0;i<views.Length;i++) {
+                if(views[i].Width!=3840||views[i].Height!=2160) throw new Exception("A native surface exceeds one monitor");
+                if(i>0) {
+                    var left=DisplayLayout.Slice(canvas,views[i-1],12); var right=DisplayLayout.Slice(canvas,views[i],12);
+                    if(Math.Abs(left[1]-right[0])>1e-9) throw new Exception("Panorama projection has a seam");
+                }
+            }
+            Array.Reverse(views); if(!DisplayLayout.Same(layout,views)) throw new Exception("Monitor reordering was mistaken for a topology change");
+            var expanded=new Scene(new Settings {SpanAllScreens=true},17,(double)canvas.Width/canvas.Height,1.5);
+            if(displayCount>=32&&expanded.HalfWidth<=512) throw new Exception("Wide scene space is still artificially capped");
+        }
+        log.Add("PASS: 1-64 display layouts, bounded native surfaces, seamless projection edges and uncapped world width.");
         var selective=new Settings {Speed=30,Count=20,Palette=1,Rotate=true,RandomizeEachRun=true,RandomSpeed=false,RandomCount=false,RandomPalette=false,RandomRotation=true,RotationChance=0};
         var noRotation=selective.ForRun(new Random(19));
         if(noRotation.Rotate||noRotation.Speed!=30||noRotation.Count!=20||noRotation.Palette!=1) throw new Exception("Selective randomization changed an unchecked option");
@@ -421,6 +457,38 @@ static class Tests {
             if(combinations.Count<24||perScreenCounts.Count<8) throw new Exception("Monitor settings are not independently re-rolled");
         } finally { foreach(var w in screens) w.Close(); }
         log.Add("PASS: three simultaneous screen windows independently roll settings across automatic cycles.");
+        foreach(int count in new[]{1,5,2}) {
+            var layout=new Rectangle[count]; for(int i=0;i<count;i++) layout[i]=new Rectangle(i*320-640,0,320,200);
+            var views=PipesWindow.CreateViews(new Settings {SpanAllScreens=true,Fireworks=true,Bubbles=true},"test",layout,IntPtr.Zero);
+            try {
+                var owner=views[0]; owner.Advance(0.25); double age=owner.Scene.Age;
+                foreach(var view in views) {
+                    if(view.SceneOwner!=owner) throw new Exception("Spanning views use independent simulations");
+                    if(view!=owner) view.Advance(0.25);
+                    view.Draw(false); GL.glFinish(); if(GL.glGetError()!=0) throw new Exception("Shared view render failed");
+                }
+                if(Math.Abs(owner.Scene.Age-age)>1e-9) throw new Exception("Growth speed scales with the number of screens");
+                if(count==5) {
+                    for(int i=0;i<count;i++) views[i].SaveFrame(Path.Combine(dir,"Shared-view-"+i+".png"));
+                    var canvas=DisplayLayout.Union(layout);
+                    using(var reference=new PipesWindow(new Settings {SpanAllScreens=true,Fireworks=true,Bubbles=true},"test",canvas,IntPtr.Zero,37,null,canvas)) {
+                        reference.Show(); reference.Scene=owner.Scene; reference.Effects=owner.Effects;
+                        reference.SaveFrame(Path.Combine(dir,"Shared-reference.png")); reference.Close();
+                    }
+                    using(var full=new Bitmap(Path.Combine(dir,"Shared-reference.png"))) {
+                        int different=0,total=0;
+                        for(int i=0;i<count;i++) using(var slice=new Bitmap(Path.Combine(dir,"Shared-view-"+i+".png"))) {
+                            for(int y=0;y<slice.Height;y+=2) for(int x=0;x<slice.Width;x+=2) {
+                                var a=full.GetPixel(i*320+x,y); var b=slice.GetPixel(x,y); total++;
+                                if(Math.Abs(a.R-b.R)+Math.Abs(a.G-b.G)+Math.Abs(a.B-b.B)>15) different++;
+                            }
+                        }
+                        if(different>total/100) throw new Exception("Shared view images do not match one continuous full-scene render: "+different+" / "+total);
+                    }
+                }
+            } finally { foreach(var view in views) view.CloseForReconfigure(); }
+        }
+        log.Add("PASS: view rebuilds for 1, 5 and 2 displays share a single clock/scene without multiplying speed; rendered slices match the full scene.");
         var effectsStress=new Effects(new Settings {Fireworks=true,Bubbles=true,FireworkRate=30,BubbleCount=100},43,1.6);
         for(int i=0;i<5000;i++) effectsStress.Step(0.02);
         if(effectsStress.Sparks.Count>3500||effectsStress.Rockets.Count>100||effectsStress.Bubbles.Count!=100) throw new Exception("Effect counts are unbounded");
@@ -463,6 +531,16 @@ static class Tests {
                 wall.Close();
             }
             log.Add("PASS: full-size spanning wallpaper attachment, viewport and teardown.");
+            var desktopViews=DisplayLayout.Screens();
+            for(int i=0;i<desktopViews.Length;i++) desktopViews[i].Offset(-15000,-15000);
+            var attached=PipesWindow.CreateViews(new Settings {SpanAllScreens=true},"wallpaper",desktopViews,host);
+            try {
+                foreach(var view in attached) {
+                    if(Native.GetParent(view.Handle)!=host||view.SceneOwner!=attached[0]) throw new Exception("Monitor-sized wallpaper view did not attach or share the scene");
+                    view.Draw(false); GL.glFinish(); if(GL.glGetError()!=0) throw new Exception("Monitor-sized wallpaper view could not render");
+                }
+            } finally { foreach(var view in attached) view.CloseForReconfigure(); }
+            log.Add("PASS: shared-scene wallpaper attaches and renders through "+desktopViews.Length+" physical-monitor-sized surfaces.");
         }
         using(var panorama=new PipesWindow(new Settings {SpanAllScreens=true,Count=5,Speed=5},"test",new Rectangle(0,0,1920,360),IntPtr.Zero,37)) {
             panorama.Show(); Application.DoEvents();

@@ -22,3 +22,12 @@ Source: https://github.com/freeglut/freeglut/blob/master/src/fg_teapot_data.h
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
  */
+
+Windows XP wordmark
+Author: Microsoft Corporation.
+Source: https://commons.wikimedia.org/wiki/File:Windows_XP_wordmark.svg
+Included thumbnail: https://thumb.wikimedia.org/wikipedia/commons/thumb/b/bb/Windows_XP_wordmark.svg/330px-Windows_XP_wordmark.svg.png
+Wikimedia Commons identifies the wordmark as public-domain text/logo artwork.
+Windows and Windows XP are Microsoft trademarks. The accompanying waving
+four-colour flag is a vector recreation drawn by this app's interface code.
+Retro Pipes is an independent retro-themed application, not a Microsoft product.

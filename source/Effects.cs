@@ -70,10 +70,11 @@ class Effects {
         }
     }
     static void Colour(Color c,double alpha) { GL.glColor4f(c.R/255f,c.G/255f,c.B/255f,(float)alpha); }
-    public void Draw(double ratio) {
+    public void Draw(double ratio,double[] clip=null) {
         aspect=Math.Max(0.4,ratio);
         GL.glDisable(0x0B50); GL.glDisable(0x0B71); GL.glEnable(0x0BE2);
-        GL.glMatrixMode(0x1701); GL.glPushMatrix(); GL.glLoadIdentity(); GL.glOrtho(-aspect,aspect,-1,1,-1,1);
+        GL.glMatrixMode(0x1701); GL.glPushMatrix(); GL.glLoadIdentity();
+        if(clip==null) GL.glOrtho(-aspect,aspect,-1,1,-1,1); else GL.glOrtho(clip[0],clip[1],clip[2],clip[3],-1,1);
         GL.glMatrixMode(0x1700); GL.glPushMatrix(); GL.glLoadIdentity();
         if(settings.Fireworks) DrawFireworks();
         if(settings.Bubbles) DrawBubbles();

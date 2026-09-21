@@ -6,7 +6,7 @@ Classic-inspired 3D pipes, fireworks and glass bubbles. Run each one alone or ov
 
 ## Download and run
 
-Download **Retro-Pipes-v1.3.zip** from the [latest release](https://github.com/S0MBRX/retro-pipes/releases/latest), extract it, and open **RetroPipes.exe**.
+Download **Retro-Pipes-v1.4.zip** from the [latest release](https://github.com/S0MBRX/retro-pipes/releases/latest), extract it, and open **RetroPipes.exe**.
 
 - **Start wallpaper** animates behind desktop icons. Use its system-tray icon to open controls or stop it.
 - **Try screensaver** fills your displays. Move the mouse or press any key to exit.
@@ -15,7 +15,9 @@ Download **Retro-Pipes-v1.3.zip** from the [latest release](https://github.com/S
 
 ## Settings
 
-![Settings with numbers above the slider ranges](Controls-preview.png)
+![Windows XP-style settings with detected displays and XP branding](Controls-preview.png)
+
+The control panel uses an XP-style blue title bar, cream panels, classic buttons, green checkmarks and the Windows XP wordmark. The title bar can be dragged; minimize and close work normally. The header shows the current display count and desktop size.
 
 Use **Pipes only**, **Fireworks only**, **Bubbles only**, or **All three**. The layer checkboxes let you make any combination. These preset buttons turn off random layer selection so the chosen combination plays as selected; you can re-enable layer chances afterward.
 
@@ -50,11 +52,13 @@ The tray menu's **Current screen settings** shows each monitor's roll. Your save
 
 ### One scene across all screens
 
-Tick **Span all screens — one continuous scene, same growth speed**, then start wallpaper or the screensaver. One continuous canvas follows the monitor arrangement in Windows Display Settings, including screens to the left of or above the primary screen. Fireworks and bubbles can share that canvas too.
+Tick **Span all detected screens — one continuous scene, same growth speed**, then start wallpaper or the screensaver. One continuous scene follows the monitor arrangement in Windows Display Settings, including screens to the left of or above the primary screen. Fireworks and bubbles can share that scene too.
+
+There is no hard-coded monitor count. The app enumerates all connected displays. In spanning mode each monitor renders a matching section of one shared simulation, avoiding a single enormous rendering window. The simulation advances once per frame, irrespective of monitor count. The app automatically starts fresh views when displays are connected, disconnected, resized or rearranged; your selected settings remain in effect. Wallpaper also retries its desktop attachment after Explorer restarts. Available display and graphics hardware still determine practical capacity.
 
 The pipe growth speed and total pipe count are unchanged. The scene gains more space and more capacity, and spanning removes the fixed 105-second pipe-scene cutoff so growth can continue naturally until the pipes fill their available paths or get stuck. Pipes follow random paths, so they are not forced to cover every part of the desktop. Set pipe count to **1** for one growing pipe in the shared scene.
 
-Random settings roll once for the entire spanning scene. Untick the option to restore independent scenes and random rolls per monitor. Window preview adopts the desktop's wide/tall aspect ratio. Apply display-mode changes by starting wallpaper again.
+Random settings roll once for the entire spanning scene. Untick the option to restore independent scenes and random rolls per monitor. Window preview adopts the desktop's wide/tall aspect ratio. Start wallpaper again to apply changes made to the app's own settings; physical display layout changes are handled automatically.
 
 ![One continuous panoramic pipe scene](Spanning-preview.png)
 
@@ -64,10 +68,11 @@ Settings save when starting a mode or closing the controls. They are stored in `
 
 - 64-bit Windows 10 or 11 with .NET Framework 4.x and OpenGL support.
 - No installer, administrator access, network connection, or extra packages are required to run the app.
-- Tested on Windows 10. Live wallpaper uses Explorer's WorkerW surface; compatibility may vary with shell changes or other wallpaper apps. Restart wallpaper after Explorer, display layout, or scaling changes.
+- Tested on Windows 10. Live wallpaper uses Explorer's WorkerW surface; compatibility may vary with shell changes or other wallpaper apps. Detected display changes and lost desktop attachments trigger automatic rebuilding.
 - Wallpaper does not register itself to start with Windows. The app is unsigned.
 - This is an original recreation, not Microsoft's original screensaver binary.
 - Utah teapot model data comes from freeglut; its license is in [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt), embedded in the binary, and available through **Credits** in the app.
+- The Windows XP wordmark is sourced from Wikimedia Commons and paired with a vector recreation of the waving flag. Source and attribution details are included in the same credits.
 
 ## Build
 
@@ -90,6 +95,6 @@ if ($process.ExitCode -ne 0) { throw 'Self-test failed. See work/test-error.txt.
 Get-Content .\work\test-results.txt
 ```
 
-The tests exercise selective random settings, 0%/100% chances, old-settings migration, extended values, serialization, high-speed growth, dense scenes, collision avoidance, scene cycling, teapot generation, all seven layer combinations, three simultaneous independent screen cycles, spanning geometry, unchanged spanning growth speed/count, full-desktop rendering and attachment, bounded effects, OpenGL rendering, preview embedding and launcher controls. Test windows are placed offscreen. Tests leave saved user settings unchanged.
+The tests exercise selective random settings, 0%/100% chances, old-settings migration, extended values, serialization, high-speed growth, dense scenes, collision avoidance, scene cycling, teapot generation, all seven layer combinations, three simultaneous independent screen cycles, layouts with 1–64 displays, view rebuilding for 1/5/2 displays, seamless shared projections, rendered-slice comparison against a full scene, unchanged spanning growth speed/count, desktop attachment, bounded effects, OpenGL rendering, preview embedding and launcher controls. Test windows are placed offscreen. Tests leave saved user settings unchanged. Layout tests simulate large monitor counts; physical desktop attachment was tested on a three-monitor setup.
 
 See [README.txt](README.txt) for command-line modes and uninstall instructions.

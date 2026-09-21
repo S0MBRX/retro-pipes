@@ -1,8 +1,11 @@
-RETRO PIPES 1.3
+RETRO PIPES 1.4
 Classic-inspired 3D pipes, fireworks and bubbles, alone or layered together.
 
 START HERE
 Double-click RetroPipes.exe. No installer or administrator access is needed.
+The controls have a Windows XP-style title bar, buttons and colours, with
+Windows XP branding. Drag the title bar to move the window. The header shows
+how many monitors are detected and the combined desktop size.
 
 LIVE WALLPAPER
 Choose your layers, colours and numbers, then click Start wallpaper.
@@ -33,7 +36,7 @@ The preset buttons disable random layer selection until you re-enable it.
 Firework intensity accepts 1-30; bubble count accepts 1-100.
 
 SPAN ALL SCREENS
-Tick Span all screens for one continuous scene across your Windows desktop.
+Tick Span all detected screens for one continuous scene across your desktop.
 This works with wallpaper and the screensaver, including layered effects.
 The pipe speed and total count stay the same; the scene has more space and
 capacity. The fixed 105-second pipe cutoff is removed in this mode so paths
@@ -42,6 +45,15 @@ every screen. For one actual growing pipe, set Pipe count to 1.
 Random settings roll once for the whole spanning scene. Untick this option
 to return to independent scenes and random settings on each monitor.
 Window preview shows the desktop's proportions. Restart wallpaper to apply.
+
+AUTOMATIC DISPLAY SCALING
+All displays reported by Windows are detected; there is no fixed monitor
+count. One monitor-sized view is created for each screen. In spanning mode
+all views share the same scene and clock, so adding screens never multiplies
+the simulation speed. Scene space follows the combined desktop dimensions.
+The app starts fresh views automatically when monitors are added, removed,
+resized or rearranged, keeping your selected settings. Hardware and Windows
+display support determine practical limits.
 
 TEAPOT EASTER EGG
 Enabled by default, with a 0.5% chance of a Utah teapot at each pipe bend.
@@ -85,11 +97,12 @@ Built for 64-bit Windows 10/11, using Windows' .NET Framework 4.x and OpenGL.
 No network access, downloaded assets or additional packages are required.
 Wallpaper uses Explorer's WorkerW desktop surface. It was tested on this
 Windows 10 PC. Windows shell changes or other wallpaper apps can affect it.
-If Explorer restarts, reopen the controls and start the wallpaper again.
-After changing monitor layout or display scaling, restart the wallpaper.
+If Explorer restarts, wallpaper retries its desktop attachment automatically.
+Detected monitor layout changes rebuild the views automatically.
 Settings are saved in %LOCALAPPDATA%\RetroPipes\settings.xml.
 This is an original recreation, not Microsoft's original screensaver binary.
 Utah teapot model data: freeglut. See THIRD-PARTY-NOTICES.txt or app Credits.
+Windows XP wordmark: Microsoft, via Wikimedia Commons. Flag: vector recreation.
 The executable is locally built and is not digitally signed.
 
 COMMAND LINE
