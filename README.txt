@@ -1,4 +1,4 @@
-RETRO PIPES 1.2
+RETRO PIPES 1.3
 Classic-inspired 3D pipes, fireworks and bubbles, alone or layered together.
 
 START HERE
@@ -32,6 +32,17 @@ Tick any combination of layer checkboxes to overlap those effects.
 The preset buttons disable random layer selection until you re-enable it.
 Firework intensity accepts 1-30; bubble count accepts 1-100.
 
+SPAN ALL SCREENS
+Tick Span all screens for one continuous scene across your Windows desktop.
+This works with wallpaper and the screensaver, including layered effects.
+The pipe speed and total count stay the same; the scene has more space and
+capacity. The fixed 105-second pipe cutoff is removed in this mode so paths
+can fill naturally or end when blocked. Random paths are not forced to visit
+every screen. For one actual growing pipe, set Pipe count to 1.
+Random settings roll once for the whole spanning scene. Untick this option
+to return to independent scenes and random settings on each monitor.
+Window preview shows the desktop's proportions. Restart wallpaper to apply.
+
 TEAPOT EASTER EGG
 Enabled by default, with a 0.5% chance of a Utah teapot at each pipe bend.
 Change the chance from 0-100% to make it rarer or more common.
@@ -61,7 +72,7 @@ Pipes random: speed, count, colour and rotation.
 Mix random: only the three layer choices.
 All random: every available category. Teapot chance stays as entered.
 
-Each screen rolls independently on start AND every new scene, including R
+In separate-screen mode, each screen rolls independently on every new scene, including R
 and the tray's Roll new scenes on every screen command. Your manual settings
 stay saved. Random values can sometimes coincide across screens by chance.
 Use Current screen settings in the tray to inspect each monitor's roll.

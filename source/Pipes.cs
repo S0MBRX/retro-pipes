@@ -15,6 +15,7 @@ public class Settings {
     public int Palette = 0;
     public bool Rotate = false;
     public bool RandomizeEachRun = false;
+    public bool SpanAllScreens = false;
     public bool Pipes = true, Fireworks = false, Bubbles = false, Teapots = true;
     public int FireworkRate = 4, BubbleCount = 16;
     public double TeapotChance = 0.5;
@@ -64,7 +65,7 @@ static class Program {
             string mode=args.Length==0 ? "" : args[0].ToLowerInvariant();
             if(mode=="--self-test") { Tests.Run(args.Length>1?args[1]:"."); return; }
             if(mode=="/s" || mode=="--screensaver") {
-                foreach(var screen in Screen.AllScreens) new PipesWindow(settings,"saver",screen.Bounds,IntPtr.Zero).Show();
+                foreach(var area in DisplayLayout.RenderBounds(settings.SpanAllScreens,DisplayLayout.Screens())) new PipesWindow(settings,"saver",area,IntPtr.Zero).Show();
                 Application.Run(); return;
             }
             if(mode.StartsWith("/p")) {
@@ -98,20 +99,28 @@ class Pipe { public Cell At,Direction; public Color Color; public Segment Growin
 class Scene {
     public List<Segment> Segments=new List<Segment>(); public List<Pipe> Pipes=new List<Pipe>();
     public HashSet<Cell> Occupied=new HashSet<Cell>(); public int Resets; public double Age;
-    Random rng; Settings settings; int halfX=10; int target=460; double hold;
+    Random rng; Settings settings; int halfX=10,halfY=6; int target=460; double hold;
+    internal int HalfWidth { get { return halfX; } }
+    internal int HalfHeight { get { return halfY; } }
+    internal int TargetSegments { get { return target; } }
     static readonly Cell[] directions={new Cell(1,0,0),new Cell(-1,0,0),new Cell(0,1,0),new Cell(0,-1,0),new Cell(0,0,1),new Cell(0,0,-1)};
     static readonly Color[][] palettes={ new[]{Color.FromArgb(230,36,53),Color.FromArgb(30,186,70),Color.FromArgb(35,95,240),Color.FromArgb(246,189,30),Color.FromArgb(190,42,225),Color.FromArgb(14,196,206),Color.FromArgb(245,108,24)}, new[]{Color.FromArgb(0,217,233),Color.FromArgb(248,32,143),Color.FromArgb(135,64,240),Color.FromArgb(62,238,191)},new[]{Color.FromArgb(178,196,215),Color.FromArgb(210,216,224),Color.FromArgb(136,163,195)} };
-    public Scene(Settings s,int seed,double aspect) { settings=s; rng=new Random(seed); halfX=Math.Max(5,Math.Min(20,(int)(aspect*6.4))); target=halfX*40; Reset(); }
+    public Scene(Settings s,int seed,double aspect,double heightScale=1) {
+        settings=s; rng=new Random(seed);
+        halfX=s.SpanAllScreens?Math.Max(5,Math.Min(512,(int)(aspect*heightScale*9.2))):Math.Max(5,Math.Min(20,(int)(aspect*6.4)));
+        halfY=s.SpanAllScreens?Math.Max(6,Math.Min(256,(int)(heightScale*8.0))):6;
+        target=halfX*40*halfY/6; Reset();
+    }
     public void Reset() {
         Segments.Clear(); Pipes.Clear(); Occupied.Clear(); Age=0; hold=0; Resets++;
         var pal=palettes[settings.Palette];
         int colourOffset=rng.Next(pal.Length);
         for(int i=0;i<settings.Count;i++) {
-            Cell start; do { start=new Cell(rng.Next(-halfX,halfX+1),rng.Next(-6,7),rng.Next(-4,5)); } while(Occupied.Contains(start));
+            Cell start; do { start=new Cell(rng.Next(-halfX,halfX+1),rng.Next(-halfY,halfY+1),rng.Next(-4,5)); } while(Occupied.Contains(start));
             Occupied.Add(start); Pipes.Add(new Pipe { At=start,Color=pal[(i+colourOffset)%pal.Length] });
         }
     }
-    bool Inside(Cell c) { return Math.Abs(c.X)<=halfX && Math.Abs(c.Y)<=6 && Math.Abs(c.Z)<=4; }
+    bool Inside(Cell c) { return Math.Abs(c.X)<=halfX && Math.Abs(c.Y)<=halfY && Math.Abs(c.Z)<=4; }
     void Grow(Pipe p) {
         var choices=new List<Cell>(); foreach(var d in directions) if(Inside(p.At+d)&&!Occupied.Contains(p.At+d)) choices.Add(d);
         if(choices.Count==0) { p.Dead=true; return; }
@@ -135,22 +144,27 @@ class Scene {
                 if(p.Progress>=1) { Segments.Add(p.Growing); p.At=p.Growing.B; p.Growing=null; }
             }
         }
-        if(allDead || Age>105) { hold+=dt; if(hold>3) Reset(); }
+        if(allDead || (!settings.SpanAllScreens&&Age>105)) { hold+=dt; if(hold>3) Reset(); }
     }
 }
 
 class PipesWindow : Form {
     Settings settings,template; Random runRandom=new Random(Guid.NewGuid().GetHashCode()); string mode; Rectangle bounds; public IntPtr DesktopParent;
     IntPtr dc,rc,quad; uint sphere,cylinder,teapot; Timer timer; Stopwatch clock=new Stopwatch(); double last; Point mouse; bool cursorHidden;
-    internal Effects Effects; double effectDuration;
+    internal Effects Effects; double effectDuration,worldHeightScale=1;
     internal Settings CurrentSettings { get { return settings; } }
     public string Description { get { return (settings.Pipes?"Pipes ":"")+(settings.Fireworks?"Fireworks ":"")+(settings.Bubbles?"Bubbles ":"")+"| speed "+settings.Speed+", pipes "+settings.Count+", colour "+new[]{"Classic","Electric","Chrome"}[settings.Palette]+", rotation "+(settings.Rotate?"on":"off"); } }
     public Scene Scene; public string Renderer; bool ready; bool paused;
     public PipesWindow(Settings s,string m,Rectangle b,IntPtr parent,int? seed=null) {
         if(seed.HasValue) runRandom=new Random(seed.Value);
         template=s.Copy(); template.Validate(); settings=template.Copy(); mode=m; bounds=b; DesktopParent=parent;
+        if(s.SpanAllScreens) {
+            var desktop=DisplayLayout.Union(DisplayLayout.Screens());
+            MaximumSize=new Size(Math.Max(desktop.Width,b.Width)+100,Math.Max(desktop.Height,b.Height)+100);
+        }
         Text="Retro Pipes — Space: pause · R: new layout · Esc: close"; BackColor=Color.Black;
         SetStyle(ControlStyles.Opaque|ControlStyles.AllPaintingInWmPaint|ControlStyles.UserPaint,true);
+        if(m=="test") FormBorderStyle=FormBorderStyle.None;
         if(m=="window" || m=="test") { ClientSize=b.Size; StartPosition=m=="test"?FormStartPosition.Manual:FormStartPosition.CenterScreen; if(m=="test") Location=new Point(-16000,-16000); }
         else { FormBorderStyle=FormBorderStyle.None; ShowInTaskbar=false; StartPosition=FormStartPosition.Manual; Bounds=b; }
         if(m=="saver") TopMost=true;
@@ -204,7 +218,12 @@ class PipesWindow : Form {
     public void ResetScene() {
         settings=template.ForRun(runRandom);
         double aspect=Math.Max(0.4,(double)ClientSize.Width/Math.Max(1,ClientSize.Height));
-        Scene=new Scene(settings,runRandom.Next(),aspect); Effects=new Effects(settings,runRandom.Next(),aspect);
+        if(settings.SpanAllScreens) {
+            var desktop=DisplayLayout.Union(DisplayLayout.Screens());
+            worldHeightScale=(double)desktop.Height/Math.Max(1,Screen.PrimaryScreen.Bounds.Height);
+            if(mode=="window"||mode=="preview") aspect=(double)desktop.Width/desktop.Height;
+        }
+        Scene=new Scene(settings,runRandom.Next(),aspect,worldHeightScale); Effects=new Effects(settings,runRandom.Next(),aspect);
         effectDuration=35+runRandom.NextDouble()*25;
     }
     internal void Advance(double dt) {
@@ -230,9 +249,17 @@ class PipesWindow : Form {
     public void Draw(bool swap) {
         GL.wglMakeCurrent(dc,rc); int w=Math.Max(1,ClientSize.Width),h=Math.Max(1,ClientSize.Height); double aspect=(double)w/h;
         GL.glViewport(0,0,w,h); GL.glClearColor(0,0,0,1); GL.glClear(0x4100);
-        GL.glMatrixMode(0x1701); GL.glLoadIdentity(); double top=0.41421356; GL.glFrustum(-top*aspect,top*aspect,-top,top,1,100);
+        GL.glMatrixMode(0x1701); GL.glLoadIdentity(); double top=0.41421356;
+        double cameraDistance=27;
+        if(settings.SpanAllScreens) {
+            // Orthographic panorama keeps the same central pipe scale and avoids
+            // ultra-wide perspective distortion. No time or growth-rate multiplier.
+            double halfHeight=27*top*worldHeightScale;
+            cameraDistance=30+Scene.HalfWidth+Scene.HalfHeight;
+            GL.glOrtho(-halfHeight*aspect,halfHeight*aspect,-halfHeight,halfHeight,1,cameraDistance*2+30);
+        } else GL.glFrustum(-top*aspect,top*aspect,-top,top,1,100);
         GL.glMatrixMode(0x1700); GL.glLoadIdentity(); GL.glLightfv(0x4000,0x1203,new float[]{-5,8,15,1});
-        GL.glTranslated(0,0,-27); GL.glRotated(13,1,0,0); GL.glRotated(settings.Rotate?Scene.Age*2: -15,0,1,0);
+        GL.glTranslated(0,0,-cameraDistance); GL.glRotated(13,1,0,0); GL.glRotated(settings.Rotate?Scene.Age*2: -15,0,1,0);
         if(settings.Pipes) {
             foreach(var s in Scene.Segments) DrawSegment(s,1);
             foreach(var p in Scene.Pipes) if(p.Growing!=null) DrawSegment(p.Growing,Math.Min(1,p.Progress));
@@ -262,6 +289,30 @@ class PipesWindow : Form {
 static class Tests {
     public static void Run(string dir) {
         Directory.CreateDirectory(dir); var log=new List<string>();
+        var threeDisplays=new[]{new Rectangle(-2560,0,2560,1440),new Rectangle(0,0,2560,1440),new Rectangle(2560,0,2560,1440)};
+        var joined=DisplayLayout.RenderBounds(true,threeDisplays);
+        if(joined.Length!=1||joined[0]!=new Rectangle(-2560,0,7680,1440)) throw new Exception("Spanning did not produce one full desktop canvas");
+        var separate=DisplayLayout.RenderBounds(false,threeDisplays);
+        if(!DisplayLayout.Same(separate,threeDisplays)) throw new Exception("Separate-screen layout changed");
+        var stacked=DisplayLayout.Union(new[]{new Rectangle(0,-1440,2560,1440),new Rectangle(-1920,0,1920,1080),new Rectangle(0,0,2560,1440)});
+        if(stacked!=new Rectangle(-1920,-1440,4480,2880)) throw new Exception("Offset or stacked displays were not included");
+        var spanningSettings=new Settings {SpanAllScreens=true,Count=1,Speed=1};
+        var smallScene=new Scene(new Settings {Count=1,Speed=1},17,16.0/9);
+        var bigScene=new Scene(spanningSettings,17,16.0/3);
+        smallScene.Step(0.25); bigScene.Step(0.25);
+        if(Math.Abs(smallScene.Pipes[0].Progress-bigScene.Pipes[0].Progress)>1e-10||bigScene.Pipes.Count!=smallScene.Pipes.Count) throw new Exception("Spanning changed pipe speed or total count");
+        if(bigScene.HalfWidth<=smallScene.HalfWidth*2||bigScene.TargetSegments<=smallScene.TargetSegments*2) throw new Exception("Spanning did not expand scene capacity");
+        // Crossing the old time cutoff must not reset a still-growing panorama.
+        bigScene.Age=106; int beforeReset=bigScene.Resets;
+        for(int i=0;i<40;i++) bigScene.Step(0.1);
+        if(bigScene.Resets!=beforeReset) throw new Exception("Spanning still resets at the small scene time limit");
+        var tallScene=new Scene(spanningSettings,17,1.5,2);
+        if(tallScene.HalfHeight<=bigScene.HalfHeight) throw new Exception("Stacked desktop lacks vertical growth space");
+        using(var savedSpan=new MemoryStream()) {
+            var xml=new XmlSerializer(typeof(Settings)); xml.Serialize(savedSpan,spanningSettings); savedSpan.Position=0;
+            if(!((Settings)xml.Deserialize(savedSpan)).SpanAllScreens) throw new Exception("Spanning setting was not persisted");
+        }
+        log.Add("PASS: single full-desktop canvas, negative/stacked coordinates, unchanged growth speed/count, expanded capacity and natural cycle completion.");
         var selective=new Settings {Speed=30,Count=20,Palette=1,Rotate=true,RandomizeEachRun=true,RandomSpeed=false,RandomCount=false,RandomPalette=false,RandomRotation=true,RotationChance=0};
         var noRotation=selective.ForRun(new Random(19));
         if(noRotation.Rotate||noRotation.Speed!=30||noRotation.Count!=20||noRotation.Palette!=1) throw new Exception("Selective randomization changed an unchecked option");
@@ -403,8 +454,33 @@ static class Tests {
                 wall.Draw(true); wall.Close();
             }
             log.Add("PASS: wallpaper attachment, rendering and teardown on an offscreen desktop child.");
+            var fullDesktop=DisplayLayout.Union(DisplayLayout.Screens());
+            using(var wall=new PipesWindow(new Settings {SpanAllScreens=true},"wallpaper",new Rectangle(-15000,-15000,fullDesktop.Width,fullDesktop.Height),host)) {
+                wall.Show(); Application.DoEvents();
+                if(Native.GetParent(wall.Handle)!=host||wall.ClientSize!=fullDesktop.Size) throw new Exception("Full desktop wallpaper attachment was clipped");
+                wall.Advance(0.1); wall.Draw(false); GL.glFinish();
+                if(GL.glGetError()!=0) throw new Exception("Spanned wallpaper rendering failed");
+                wall.Close();
+            }
+            log.Add("PASS: full-size spanning wallpaper attachment, viewport and teardown.");
         }
-        var uiSettings=new Settings {Speed=42,Count=30};
+        using(var panorama=new PipesWindow(new Settings {SpanAllScreens=true,Count=5,Speed=5},"test",new Rectangle(0,0,1920,360),IntPtr.Zero,37)) {
+            panorama.Show(); Application.DoEvents();
+            for(int frame=0;frame<2000;frame++) panorama.Advance(0.02);
+            panorama.SaveFrame(Path.Combine(dir,"Spanning-preview.png"));
+            panorama.Close();
+        }
+        // Use the user's actual desktop size to catch native window/viewport limits.
+        Rectangle desktopBounds=DisplayLayout.Union(DisplayLayout.Screens());
+        using(var panorama=new PipesWindow(new Settings {SpanAllScreens=true},"test",new Rectangle(Point.Empty,desktopBounds.Size),IntPtr.Zero,37)) {
+            panorama.Show(); Application.DoEvents();
+            if(panorama.ClientSize!=desktopBounds.Size) throw new Exception("Native canvas was clamped: expected "+desktopBounds.Size+", actual "+panorama.ClientSize);
+            panorama.Advance(0.1); panorama.Draw(false); GL.glFinish();
+            if(GL.glGetError()!=0) throw new Exception("Full-size panorama rendering failed");
+            panorama.Close();
+        }
+        log.Add("PASS: continuous panorama PNG and full desktop "+desktopBounds.Width+"x"+desktopBounds.Height+" OpenGL canvas.");
+        var uiSettings=new Settings {Speed=42,Count=30,SpanAllScreens=true};
         using(var launcher=new Launcher(uiSettings,false)) {
             launcher.StartPosition=FormStartPosition.Manual; launcher.Location=new Point(-16000,-16000);
             launcher.Show(); Application.DoEvents();
@@ -414,7 +490,7 @@ static class Tests {
             using(var bitmap=new Bitmap(launcher.Width,launcher.Height)) { launcher.DrawToBitmap(bitmap,new Rectangle(0,0,bitmap.Width,bitmap.Height)); bitmap.Save(Path.Combine(dir,"Launcher-preview.png"),ImageFormat.Png); }
             launcher.Close();
         }
-        if(uiSettings.Speed!=42||uiSettings.Count!=30) throw new Exception("Closing controls lost above-slider values");
+        if(uiSettings.Speed!=42||uiSettings.Count!=30||!uiSettings.SpanAllScreens) throw new Exception("Closing controls lost above-slider values or spanning mode");
         log.Add("PASS: launcher controls render and close cleanly.");
         using(var resource=System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream("RetroPipes.ThirdPartyNotices"))
             if(resource==null||resource.Length==0) throw new Exception("Teapot data license is missing from binary");

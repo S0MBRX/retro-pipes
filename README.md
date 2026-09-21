@@ -1,12 +1,12 @@
 # Retro Pipes
 
-Classic-inspired 3D pipes, fireworks and glass bubbles. Run each one alone or overlap them as a live desktop wallpaper, Windows screensaver, or windowed animation. Every monitor has its own random cycle.
+Classic-inspired 3D pipes, fireworks and glass bubbles. Run each one alone or overlap them as a live desktop wallpaper, Windows screensaver, or windowed animation. Choose independent scenes per monitor or one continuous scene across all screens.
 
 ![Pipes, fireworks and bubbles together](Effects-preview.png)
 
 ## Download and run
 
-Download **Retro-Pipes-v1.2.zip** from the [latest release](https://github.com/S0MBRX/retro-pipes/releases/latest), extract it, and open **RetroPipes.exe**.
+Download **Retro-Pipes-v1.3.zip** from the [latest release](https://github.com/S0MBRX/retro-pipes/releases/latest), extract it, and open **RetroPipes.exe**.
 
 - **Start wallpaper** animates behind desktop icons. Use its system-tray icon to open controls or stop it.
 - **Try screensaver** fills your displays. Move the mouse or press any key to exit.
@@ -42,11 +42,21 @@ Turn on **Enable random cycle**, then tick only the settings that should change:
 
 Quick presets: **Pipes random** rolls pipe speed, count, colour and rotation; **Mix random** rolls only the layers; **All random** rolls all available categories. Teapot probability stays at your chosen value.
 
-Each monitor rolls independently on start, when its scene finishes, on R in a preview, or through **Roll new scenes on every screen** in the tray menu. Pipe scenes finish when full; effects-only scenes cycle after 35–60 seconds. Random values can occasionally match by chance, but no settings roll is shared across monitors.
+In separate-screen mode, each monitor rolls independently on start, when its scene finishes, on R in a preview, or through **Roll new scenes on every screen** in the tray menu. Pipe scenes finish when full; effects-only scenes cycle after 35–60 seconds. Random values can occasionally match by chance, but no settings roll is shared across separate scenes.
 
 If all layer rolls are off, one manual layer is kept so the screen is never empty (Fireworks first, then Bubbles, then Pipes). Therefore, layer percentages describe each independent chance roll rather than the final frequency after this fallback. With random cycle off, all screens use your manual settings and generate independent animation paths.
 
 The tray menu's **Current screen settings** shows each monitor's roll. Your saved manual values are preserved.
+
+### One scene across all screens
+
+Tick **Span all screens — one continuous scene, same growth speed**, then start wallpaper or the screensaver. One continuous canvas follows the monitor arrangement in Windows Display Settings, including screens to the left of or above the primary screen. Fireworks and bubbles can share that canvas too.
+
+The pipe growth speed and total pipe count are unchanged. The scene gains more space and more capacity, and spanning removes the fixed 105-second pipe-scene cutoff so growth can continue naturally until the pipes fill their available paths or get stuck. Pipes follow random paths, so they are not forced to cover every part of the desktop. Set pipe count to **1** for one growing pipe in the shared scene.
+
+Random settings roll once for the entire spanning scene. Untick the option to restore independent scenes and random rolls per monitor. Window preview adopts the desktop's wide/tall aspect ratio. Apply display-mode changes by starting wallpaper again.
+
+![One continuous panoramic pipe scene](Spanning-preview.png)
 
 Settings save when starting a mode or closing the controls. They are stored in `%LOCALAPPDATA%\RetroPipes\settings.xml`.
 
@@ -80,6 +90,6 @@ if ($process.ExitCode -ne 0) { throw 'Self-test failed. See work/test-error.txt.
 Get-Content .\work\test-results.txt
 ```
 
-The tests exercise selective random settings, 0%/100% chances, old-settings migration, extended values, serialization, high-speed growth, dense scenes, collision avoidance, scene cycling, teapot generation, all seven layer combinations, three simultaneous independent screen cycles, bounded effects, OpenGL rendering, preview embedding, launcher controls and wallpaper attachment when a desktop surface is available. Test windows are placed offscreen. Tests leave saved user settings unchanged.
+The tests exercise selective random settings, 0%/100% chances, old-settings migration, extended values, serialization, high-speed growth, dense scenes, collision avoidance, scene cycling, teapot generation, all seven layer combinations, three simultaneous independent screen cycles, spanning geometry, unchanged spanning growth speed/count, full-desktop rendering and attachment, bounded effects, OpenGL rendering, preview embedding and launcher controls. Test windows are placed offscreen. Tests leave saved user settings unchanged.
 
 See [README.txt](README.txt) for command-line modes and uninstall instructions.

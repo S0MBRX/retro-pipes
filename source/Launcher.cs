@@ -9,16 +9,16 @@ using System.Windows.Forms;
 namespace RetroPipes {
 class Launcher : Form {
     Settings settings; TrackBar speed,count; internal NumericUpDown speedNumber,countNumber;
-    ComboBox palette; CheckBox rotate,randomize,pipes,fireworks,bubbles,teapots;
+    ComboBox palette; CheckBox rotate,randomize,pipes,fireworks,bubbles,teapots; internal CheckBox spanScreens;
     CheckBox randSpeed,randCount,randPalette,randRotation,randPipes,randFireworks,randBubbles,randDensity;
     NumericUpDown rotationChance,pipesChance,fireworksChance,bubblesChance,teapotChance,fireworkRate,bubbleCount;
-    bool persistSettings; NotifyIcon tray; Label status; Timer watch=new Timer();
+    bool persistSettings,activeSpan; Rectangle[] activeDisplays; NotifyIcon tray; Label status; Timer watch=new Timer();
     List<PipesWindow> wallpapers=new List<PipesWindow>();
     System.Threading.Mutex wallpaperLock; bool ownsWallpaperLock;
     public Launcher(Settings value) : this(value,true) { }
     internal Launcher(Settings value,bool persist) {
         settings=value; settings.Validate(); persistSettings=persist;
-        Text="Retro Pipes"; ClientSize=new Size(790,685); FormBorderStyle=FormBorderStyle.FixedDialog;
+        Text="Retro Pipes"; ClientSize=new Size(790,717); FormBorderStyle=FormBorderStyle.FixedDialog;
         MaximizeBox=false; StartPosition=FormStartPosition.CenterScreen;
         BackColor=Color.FromArgb(17,20,29); ForeColor=Color.White; Font=new Font("Segoe UI",10);
         Icon=Icon.ExtractAssociatedIcon(Application.ExecutablePath);
@@ -28,7 +28,7 @@ class Launcher : Form {
             using(var stream=Assembly.GetExecutingAssembly().GetManifestResourceStream("RetroPipes.ThirdPartyNotices"))
             using(var reader=new StreamReader(stream)) MessageBox.Show(reader.ReadToEnd(),"Retro Pipes — third-party credits");
         }; Controls.Add(credits); credits.BringToFront();
-        Label("Pipes, sparks & soap bubbles. A different show on every screen.",29,69,710,25,11,Color.LightSteelBlue);
+        Label("Pipes, sparks & soap bubbles. Separate screens or one shared canvas.",29,69,710,25,11,Color.LightSteelBlue);
         Button("Pipes only",30,106,165,delegate { Layers(true,false,false); });
         Button("Fireworks only",218,106,165,delegate { Layers(false,true,false); });
         Button("Bubbles only",406,106,165,delegate { Layers(false,false,true); });
@@ -36,7 +36,7 @@ class Launcher : Form {
         pipes=Check("Pipes",30,158,125,settings.Pipes); fireworks=Check("Fireworks",218,158,140,settings.Fireworks); bubbles=Check("Bubbles",406,158,140,settings.Bubbles);
         Label("Tick multiple layers to overlap.",594,161,170,36,9,Color.LightSteelBlue);
         Label("MANUAL SETTINGS",30,206,335,23,10,Color.LightSteelBlue);
-        Label("RANDOM CYCLE · EACH SCREEN",410,206,350,23,10,Color.LightSteelBlue);
+        var cycleHeading=Label("RANDOM CYCLE · EACH SCREEN",410,206,350,23,10,Color.LightSteelBlue);
         Label("Pipe colour",30,248,110,24,10,Color.White);
         palette=new ComboBox {Left=147,Top=244,Width=225,DropDownStyle=ComboBoxStyle.DropDownList};
         palette.Items.AddRange(new object[]{"Classic colours","Electric neon","Polished chrome"}); palette.SelectedIndex=settings.Palette; Controls.Add(palette);
@@ -60,16 +60,21 @@ class Launcher : Form {
         Button("Pipes random",410,505,110,delegate { RandomPreset(1); });
         Button("Mix random",529,505,110,delegate { RandomPreset(2); });
         Button("All random",649,505,110,delegate { RandomPreset(3); });
-        Label("Tick only what should change. Numbers are random upper bounds.\nEach monitor rolls separately at start, at reset and when you press R.",30,557,729,42,9,Color.LightSteelBlue);
-        Button("Window preview",30,607,165,delegate { Save(); new PipesWindow(settings,"window",new Rectangle(0,0,960,600),IntPtr.Zero).Show(); });
-        Button("Try screensaver",218,607,165,delegate { Save(); Process.Start(Application.ExecutablePath,"/s"); });
-        Button("Start wallpaper",406,607,165,delegate { StartWallpaper(); });
-        Button("Stop wallpaper",594,607,165,delegate { StopWallpaper(); });
-        status=Label("Ready. Wallpaper controls appear in the system tray while running.",30,652,729,24,9,Color.LightSteelBlue);
+        spanScreens=Check("Span all screens — one continuous scene, same growth speed",30,548,729,settings.SpanAllScreens);
+        var cycleHelp=Label("",30,585,729,42,9,Color.LightSteelBlue);
+        EventHandler updateLayoutText=delegate {
+            cycleHeading.Text=spanScreens.Checked?"RANDOM CYCLE · SHARED SCENE":"RANDOM CYCLE · EACH SCREEN";
+            cycleHelp.Text="Tick only what should change. Numbers are random upper bounds.\n"+(spanScreens.Checked?"One scene and one settings roll cover all screens. Extra space fills naturally.":"Each monitor rolls separately at start, at reset and when you press R.");
+        }; spanScreens.CheckedChanged+=updateLayoutText; updateLayoutText(null,EventArgs.Empty);
+        Button("Window preview",30,639,165,delegate { Save(); new PipesWindow(settings,"window",DisplayLayout.PreviewBounds(settings.SpanAllScreens),IntPtr.Zero).Show(); });
+        Button("Try screensaver",218,639,165,delegate { Save(); Process.Start(Application.ExecutablePath,"/s"); });
+        Button("Start wallpaper",406,639,165,delegate { StartWallpaper(); });
+        Button("Stop wallpaper",594,639,165,delegate { StopWallpaper(); });
+        status=Label("Ready. Wallpaper controls appear in the system tray while running.",30,684,729,24,9,Color.LightSteelBlue);
         var menu=new ContextMenuStrip(); menu.Items.Add("Open controls",null,delegate { Show(); WindowState=FormWindowState.Normal; Activate(); });
         menu.Items.Add("Roll new scenes on every screen",null,delegate { foreach(var w in wallpapers) w.ResetScene(); });
         menu.Items.Add("Current screen settings",null,delegate {
-            var lines=new List<string>(); for(int i=0;i<wallpapers.Count;i++) lines.Add("Screen "+(i+1)+": "+wallpapers[i].Description);
+            var lines=new List<string>(); for(int i=0;i<wallpapers.Count;i++) lines.Add((activeSpan?"All screens":"Screen "+(i+1))+": "+wallpapers[i].Description);
             MessageBox.Show(string.Join("\n\n",lines.ToArray()),"Each screen's current settings");
         });
         menu.Items.Add("Stop wallpaper",null,delegate { StopWallpaper(); Show(); });
@@ -77,7 +82,7 @@ class Launcher : Form {
         tray=new NotifyIcon {Icon=Icon,Text="Retro Pipes — live wallpaper",ContextMenuStrip=menu,Visible=false};
         tray.DoubleClick+=delegate { Show(); Activate(); };
         watch.Interval=2000; watch.Tick+=delegate {
-            if(wallpapers.Count>0&&(!Native.IsWindow(wallpapers[0].DesktopParent)||wallpapers.Count!=Screen.AllScreens.Length)) { StopWallpaper(); Show(); status.Text="The desktop changed. Start the wallpaper again when ready."; }
+            if(wallpapers.Count>0&&(!Native.IsWindow(wallpapers[0].DesktopParent)||!DisplayLayout.Same(activeDisplays,DisplayLayout.Screens()))) { StopWallpaper(); Show(); status.Text="The desktop changed. Start the wallpaper again when ready."; }
         }; watch.Start();
     }
     void Layers(bool p,bool f,bool b) { pipes.Checked=p; fireworks.Checked=f; bubbles.Checked=b; randPipes.Checked=randFireworks.Checked=randBubbles.Checked=false; }
@@ -110,6 +115,7 @@ class Launcher : Form {
         settings.RandomRotation=randRotation.Checked; settings.RandomPipes=randPipes.Checked; settings.RandomFireworks=randFireworks.Checked; settings.RandomBubbles=randBubbles.Checked;
         settings.RandomEffectDensity=randDensity.Checked; settings.RotationChance=(int)rotationChance.Value; settings.PipesChance=(int)pipesChance.Value;
         settings.FireworksChance=(int)fireworksChance.Value; settings.BubblesChance=(int)bubblesChance.Value;
+        settings.SpanAllScreens=spanScreens.Checked;
         settings.Validate(); pipes.Checked=settings.Pipes;
         if(persistSettings) settings.Save();
     }
@@ -119,8 +125,9 @@ class Launcher : Form {
             try { ownsWallpaperLock=wallpaperLock.WaitOne(0); } catch(System.Threading.AbandonedMutexException) { ownsWallpaperLock=true; }
             if(!ownsWallpaperLock) throw new Exception("Retro Pipes wallpaper is already running. Open its system tray icon to control it.");
             IntPtr host=Native.FindWallpaperHost(); if(host==IntPtr.Zero) throw new Exception("Windows did not expose a wallpaper surface. Try again after closing Task View.");
-            foreach(var screen in Screen.AllScreens) { var w=new PipesWindow(settings,"wallpaper",screen.Bounds,host); wallpapers.Add(w); w.Show(); }
-            status.Text="Running on "+wallpapers.Count+" screens. Each screen has its own random cycle.";
+            activeDisplays=DisplayLayout.Screens(); activeSpan=settings.SpanAllScreens;
+            foreach(var area in DisplayLayout.RenderBounds(activeSpan,activeDisplays)) { var w=new PipesWindow(settings,"wallpaper",area,host); wallpapers.Add(w); w.Show(); }
+            status.Text=activeSpan?"One continuous scene across "+activeDisplays.Length+" screens. Growth speed is unchanged.":"Running on "+wallpapers.Count+" screens. Each screen has its own random cycle.";
             tray.Visible=true; Hide(); tray.ShowBalloonTip(2500,"Retro Pipes is running","Right-click the tray icon for controls, new scenes or current screen settings.",ToolTipIcon.Info);
         } catch(Exception e) { StopWallpaper(); MessageBox.Show(this,e.Message,"Wallpaper",MessageBoxButtons.OK,MessageBoxIcon.Information); }
     }
