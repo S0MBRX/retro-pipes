@@ -13,9 +13,11 @@ class Effects {
     public readonly List<Spark> Sparks=new List<Spark>();
     public readonly List<Rocket> Rockets=new List<Rocket>();
     public readonly List<Bubble> Bubbles=new List<Bubble>();
+    internal readonly DvdLogo Dvd;
     Random random; Settings settings; double aspect,nextLaunch,age;
     public Effects(Settings value,int seed,double ratio) {
         settings=value; random=new Random(seed); aspect=Math.Max(0.4,ratio); nextLaunch=0.15;
+        if(settings.Dvd) Dvd=new DvdLogo(new Random(seed^0x53AF19),aspect);
         if(settings.Bubbles) for(int i=0;i<settings.BubbleCount;i++) {
             double radius=0.08+random.NextDouble()*0.14;
             Bubbles.Add(new Bubble {X=Between(-aspect+radius,aspect-radius),Y=Between(-1+radius,1-radius),VX=Between(-0.13,0.13),VY=Between(-0.1,0.16),Radius=radius,Hue=random.NextDouble()});
@@ -36,7 +38,7 @@ class Effects {
         }
     }
     public void Step(double dt) {
-        age+=dt;
+        age+=dt; if(Dvd!=null) Dvd.Step(dt);
         if(settings.Fireworks) {
             nextLaunch-=dt;
             if(nextLaunch<=0) {
@@ -78,6 +80,7 @@ class Effects {
         GL.glMatrixMode(0x1700); GL.glPushMatrix(); GL.glLoadIdentity();
         if(settings.Fireworks) DrawFireworks();
         if(settings.Bubbles) DrawBubbles();
+        if(Dvd!=null) Dvd.Draw();
         GL.glPopMatrix(); GL.glMatrixMode(0x1701); GL.glPopMatrix(); GL.glMatrixMode(0x1700);
         GL.glDisable(0x0BE2); GL.glEnable(0x0B71); GL.glEnable(0x0B50);
     }

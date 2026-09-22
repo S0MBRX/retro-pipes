@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -10,8 +10,8 @@ using System.Xml.Serialization;
 
 namespace RetroPipes {
 public class Settings {
-    public int Speed = 5;
-    public int Count = 5;
+    public int Speed = 25;
+    public int Count = 10;
     public int Palette = 0;
     public bool Rotate = false;
     public bool RandomizeEachRun = false;
@@ -24,6 +24,8 @@ public class Settings {
     public int RotationChance = 50, PipesChance = 80, FireworksChance = 35, BubblesChance = 35;
     public bool RandomEffectDensity = false;
     public bool RandomTeapots = false;
+    public bool Dvd = false, RandomDvd = false;
+    public int DvdChance = 35;
     public const int MaxSpeed = 1000, MaxCount = 500;
     public static string FilePath { get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "RetroPipes", "settings.xml"); } }
     public static Settings Load() { try { using(var s = File.OpenRead(FilePath)) return (Settings)new XmlSerializer(typeof(Settings)).Deserialize(s); } catch { return new Settings(); } }
@@ -33,8 +35,8 @@ public class Settings {
         Speed=Math.Max(1,Math.Min(MaxSpeed,Speed)); Count=Math.Max(1,Math.Min(MaxCount,Count)); Palette=Math.Max(0,Math.Min(2,Palette));
         FireworkRate=Math.Max(1,Math.Min(30,FireworkRate)); BubbleCount=Math.Max(1,Math.Min(100,BubbleCount));
         TeapotChance=double.IsNaN(TeapotChance)?0.5:Math.Max(0,Math.Min(100,TeapotChance));
-        RotationChance=Percent(RotationChance); PipesChance=Percent(PipesChance); FireworksChance=Percent(FireworksChance); BubblesChance=Percent(BubblesChance);
-        if(!Pipes&&!Fireworks&&!Bubbles) Pipes=true;
+        RotationChance=Percent(RotationChance); PipesChance=Percent(PipesChance); FireworksChance=Percent(FireworksChance); BubblesChance=Percent(BubblesChance); DvdChance=Percent(DvdChance);
+        if(!Pipes&&!Fireworks&&!Bubbles&&!Dvd) Pipes=true;
     }
     static int Percent(int n) { return Math.Max(0,Math.Min(100,n)); }
     public Settings ForRun(Random random) {
@@ -48,10 +50,11 @@ public class Settings {
             if(RandomPipes) result.Pipes=random.Next(100)<result.PipesChance;
             if(RandomFireworks) result.Fireworks=random.Next(100)<result.FireworksChance;
             if(RandomBubbles) result.Bubbles=random.Next(100)<result.BubblesChance;
+            if(RandomDvd) result.Dvd=random.Next(100)<result.DvdChance;
             if(RandomEffectDensity) { result.FireworkRate=random.Next(1,result.FireworkRate+1); result.BubbleCount=random.Next(1,result.BubbleCount+1); }
             if(RandomTeapots) { result.Teapots=random.Next(2)==1; result.TeapotChance=Math.Round(random.NextDouble()*result.TeapotChance,2); }
             // Keep one of the manual layers if all chance rolls are off.
-            if(!result.Pipes&&!result.Fireworks&&!result.Bubbles) { if(Fireworks) result.Fireworks=true; else if(Bubbles) result.Bubbles=true; else result.Pipes=true; }
+            if(!result.Pipes&&!result.Fireworks&&!result.Bubbles&&!result.Dvd) { if(Dvd) result.Dvd=true; else if(Fireworks) result.Fireworks=true; else if(Bubbles) result.Bubbles=true; else result.Pipes=true; }
         }
         return result;
     }
@@ -100,6 +103,7 @@ class Pipe { public Cell At,Direction; public Color Color; public Segment Growin
 class Scene {
     public List<Segment> Segments=new List<Segment>(); public List<Pipe> Pipes=new List<Pipe>();
     public HashSet<Cell> Occupied=new HashSet<Cell>(); public int Resets; public double Age;
+    readonly double cameraPhase,cameraPhase2;
     Random rng; Settings settings; int halfX=10,halfY=6; int target=460; double hold;
     internal int HalfWidth { get { return halfX; } }
     internal int HalfHeight { get { return halfY; } }
@@ -108,9 +112,19 @@ class Scene {
     static readonly Color[][] palettes={ new[]{Color.FromArgb(230,36,53),Color.FromArgb(30,186,70),Color.FromArgb(35,95,240),Color.FromArgb(246,189,30),Color.FromArgb(190,42,225),Color.FromArgb(14,196,206),Color.FromArgb(245,108,24)}, new[]{Color.FromArgb(0,217,233),Color.FromArgb(248,32,143),Color.FromArgb(135,64,240),Color.FromArgb(62,238,191)},new[]{Color.FromArgb(178,196,215),Color.FromArgb(210,216,224),Color.FromArgb(136,163,195)} };
     public Scene(Settings s,int seed,double aspect,double heightScale=1) {
         settings=s; rng=new Random(seed);
+        var cameraRandom=new Random(seed^0x6A13F5); cameraPhase=cameraRandom.NextDouble()*Math.PI*2; cameraPhase2=cameraRandom.NextDouble()*Math.PI*2;
         halfX=s.SpanAllScreens?Math.Max(5,(int)(aspect*heightScale*9.2)):Math.Max(5,Math.Min(20,(int)(aspect*6.4)));
         halfY=s.SpanAllScreens?Math.Max(6,(int)(heightScale*8.0)):6;
         target=(int)Math.Min(int.MaxValue,(long)halfX*40*halfY/6); Reset();
+    }
+    internal CameraPose CameraAt(double time,bool orbit) {
+        if(!orbit) return new CameraPose {Pitch=13,Yaw=-15};
+        return new CameraPose {
+            Pitch=6+22*Math.Sin(time*0.035+cameraPhase)+6*Math.Sin(time*0.013+cameraPhase2),
+            Yaw=-15+time*2+8*Math.Sin(time*0.019+cameraPhase2),
+            Roll=3*Math.Sin(time*0.023+cameraPhase),
+            AimX=0.65*Math.Sin(time*0.017+cameraPhase2), AimY=0.5*Math.Sin(time*0.027+cameraPhase)
+        };
     }
     public void Reset() {
         Segments.Clear(); Pipes.Clear(); Occupied.Clear(); Age=0; hold=0; Resets++;
@@ -156,7 +170,7 @@ class PipesWindow : Form {
     PipesWindow sceneOwner; Rectangle? sharedCanvas; bool reconfiguring; event Action FrameReady;
     internal PipesWindow SceneOwner { get { return sceneOwner??this; } }
     internal Settings CurrentSettings { get { return SceneOwner.settings; } }
-    public string Description { get { var s=CurrentSettings; return (s.Pipes?"Pipes ":"")+(s.Fireworks?"Fireworks ":"")+(s.Bubbles?"Bubbles ":"")+"| speed "+s.Speed+", pipes "+s.Count+", colour "+new[]{"Classic","Electric","Chrome"}[s.Palette]+", rotation "+(s.Rotate?"on":"off"); } }
+    public string Description { get { var s=CurrentSettings; return (s.Pipes?"Pipes ":"")+(s.Fireworks?"Fireworks ":"")+(s.Bubbles?"Bubbles ":"")+(s.Dvd?"DVD ":"")+"| speed "+s.Speed+", pipes "+s.Count+", colour "+new[]{"Classic","Electric","Chrome"}[s.Palette]+", rotation "+(s.Rotate?"on":"off"); } }
     public Scene Scene; public string Renderer; bool ready; bool paused;
     public PipesWindow(Settings s,string m,Rectangle b,IntPtr parent,int? seed=null,PipesWindow owner=null,Rectangle? canvas=null) {
         sceneOwner=owner; sharedCanvas=canvas;
@@ -245,7 +259,7 @@ class PipesWindow : Form {
         if(settings.Pipes) {
             int cycle=Scene.Resets; Scene.Step(dt);
             if(Scene.Resets!=cycle) { ResetScene(); return; }
-        } else { Scene.Age+=dt; if(Scene.Age>=effectDuration) { ResetScene(); return; } }
+        } else { Scene.Age+=dt; if(Scene.Age>=effectDuration&&(template.RandomizeEachRun||settings.Fireworks||settings.Bubbles)) { ResetScene(); return; } }
         Effects.Step(dt);
     }
     protected override void OnPaintBackground(PaintEventArgs e) { }
@@ -278,7 +292,9 @@ class PipesWindow : Form {
             } else GL.glOrtho(-halfHeight*aspect,halfHeight*aspect,-halfHeight,halfHeight,1,cameraDistance*2+30);
         } else GL.glFrustum(-top*aspect,top*aspect,-top,top,1,100);
         GL.glMatrixMode(0x1700); GL.glLoadIdentity(); GL.glLightfv(0x4000,0x1203,new float[]{-5,8,15,1});
-        GL.glTranslated(0,0,-cameraDistance); GL.glRotated(13,1,0,0); GL.glRotated(settings.Rotate?Scene.Age*2: -15,0,1,0);
+        var camera=Scene.CameraAt(Scene.Age,settings.Rotate);
+        GL.glTranslated(-camera.AimX,-camera.AimY,-cameraDistance); GL.glRotated(camera.Roll,0,0,1);
+        GL.glRotated(camera.Pitch,1,0,0); GL.glRotated(camera.Yaw,0,1,0);
         if(settings.Pipes) {
             foreach(var s in Scene.Segments) DrawSegment(s,1);
             foreach(var p in Scene.Pipes) if(p.Growing!=null) DrawSegment(p.Growing,Math.Min(1,p.Progress));
@@ -428,8 +444,8 @@ static class Tests {
             if(scene.Resets<2) throw new Exception("Scene did not cycle");
         }
         log.Add("PASS: 180,000 simulation updates across 30 seeds; axis alignment, unique endpoints, bounds, automatic reset.");
-        for(int mask=1;mask<=7;mask++) {
-            var modes=new Settings {Pipes=(mask&1)!=0,Fireworks=(mask&2)!=0,Bubbles=(mask&4)!=0,TeapotChance=mask==1?25:0.5,FireworkRate=6};
+        for(int mask=1;mask<=15;mask++) {
+            var modes=new Settings {Pipes=(mask&1)!=0,Fireworks=(mask&2)!=0,Bubbles=(mask&4)!=0,Dvd=(mask&8)!=0,TeapotChance=mask==1?25:0.5,FireworkRate=6};
             using(var w=new PipesWindow(modes,"test",new Rectangle(0,0,1200,750),IntPtr.Zero,101)) {
                 w.Show(); Application.DoEvents();
                 for(int i=0;i<420;i++) w.Advance(0.02);
@@ -440,7 +456,7 @@ static class Tests {
                 w.Close();
             }
         }
-        log.Add("PASS: all seven single/overlapping layer combinations render without OpenGL errors.");
+        log.Add("PASS: all fifteen single/overlapping layer combinations render without OpenGL errors.");
         var randomTemplate=new Settings {RandomizeEachRun=true,Count=20,Speed=30,RandomPipes=true,RandomFireworks=true,RandomBubbles=true};
         var screens=new List<PipesWindow>(); var combinations=new HashSet<string>(); var perScreenCounts=new HashSet<int>();
         try {
@@ -461,7 +477,7 @@ static class Tests {
         log.Add("PASS: three simultaneous screen windows independently roll settings across automatic cycles.");
         foreach(int count in new[]{1,5,2}) {
             var layout=new Rectangle[count]; for(int i=0;i<count;i++) layout[i]=new Rectangle(i*320-640,0,320,200);
-            var views=PipesWindow.CreateViews(new Settings {SpanAllScreens=true,Fireworks=true,Bubbles=true},"test",layout,IntPtr.Zero);
+            var views=PipesWindow.CreateViews(new Settings {SpanAllScreens=true,Fireworks=true,Bubbles=true,Dvd=true,Rotate=true},"test",layout,IntPtr.Zero);
             try {
                 var owner=views[0]; owner.Advance(0.25); double age=owner.Scene.Age;
                 foreach(var view in views) {
@@ -473,7 +489,7 @@ static class Tests {
                 if(count==5) {
                     for(int i=0;i<count;i++) views[i].SaveFrame(Path.Combine(dir,"Shared-view-"+i+".png"));
                     var canvas=DisplayLayout.Union(layout);
-                    using(var reference=new PipesWindow(new Settings {SpanAllScreens=true,Fireworks=true,Bubbles=true},"test",canvas,IntPtr.Zero,37,null,canvas)) {
+                    using(var reference=new PipesWindow(new Settings {SpanAllScreens=true,Fireworks=true,Bubbles=true,Dvd=true,Rotate=true},"test",canvas,IntPtr.Zero,37,null,canvas)) {
                         reference.Show(); reference.Scene=owner.Scene; reference.Effects=owner.Effects;
                         reference.SaveFrame(Path.Combine(dir,"Shared-reference.png")); reference.Close();
                     }
@@ -573,6 +589,8 @@ static class Tests {
         if(uiSettings.Speed!=42||uiSettings.Count!=30||!uiSettings.SpanAllScreens) throw new Exception("Closing controls lost above-slider values or spanning mode");
         log.Add("PASS: launcher controls render and close cleanly.");
         UiTests.Run(dir);
+        DvdTests.Run(dir);
+        log.Add("PASS: DVD edges/corners, colour changes, delayed frames, portrait/panoramic bounds, standalone continuity, chance endpoints, persistence and smooth drifting orbit.");
         log.Add("PASS: clipped/translated paints, stale-pixel removal, 30 mode switches, typed overrides, reusable Advanced dialog, Full Random on/off/defaults and persistence, teapot randomization.");
         using(var resource=System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream("RetroPipes.ThirdPartyNotices"))
             if(resource==null||resource.Length==0) throw new Exception("Teapot data license is missing from binary");

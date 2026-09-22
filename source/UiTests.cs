@@ -51,7 +51,8 @@ static class UiTests {
             using(var baseline=new Bitmap(launcher.Width,launcher.Height)) using(var after=new Bitmap(launcher.Width,launcher.Height)) {
                 launcher.DrawToBitmap(baseline,launcher.ClientRectangle);
                 for(int i=0;i<30;i++) { launcher.modeSelector.SelectedIndex=1; launcher.Refresh(); launcher.modeSelector.SelectedIndex=0; launcher.Refresh(); }
-                launcher.DrawToBitmap(after,launcher.ClientRectangle); SamePixels(baseline,after,"Switching modes left stale controls");
+                launcher.DrawToBitmap(after,launcher.ClientRectangle);
+                SamePixels(baseline,after,"Switching modes left stale controls");
             }
             if(launcher.speedNumber.Value!=125||launcher.countNumber.Value!=60) throw new Exception("Mode switch lost typed overrides");
             using(var advanced=launcher.CreateAdvancedWindow()) {
@@ -69,7 +70,7 @@ static class UiTests {
             using(var bitmap=new Bitmap(launcher.Width,launcher.Height)) { launcher.DrawToBitmap(bitmap,launcher.ClientRectangle); bitmap.Save(Path.Combine(dir,"Randomized-preview.png"),ImageFormat.Png); }
             launcher.Close();
         }
-        if(!settings.RandomizeEachRun||!settings.RandomSpeed||!settings.RandomCount||!settings.RandomPalette||!settings.RandomRotation||!settings.RandomPipes||!settings.RandomFireworks||!settings.RandomBubbles||!settings.RandomEffectDensity||!settings.RandomTeapots||!settings.SpanAllScreens)
+        if(!settings.RandomizeEachRun||!settings.RandomSpeed||!settings.RandomCount||!settings.RandomPalette||!settings.RandomRotation||!settings.RandomPipes||!settings.RandomFireworks||!settings.RandomBubbles||!settings.RandomDvd||!settings.Dvd||!settings.RandomEffectDensity||!settings.RandomTeapots||!settings.SpanAllScreens)
             throw new Exception("Full Random omitted a category or changed the display layout");
         var toggled=settings.Copy();
         using(var launcher=new Launcher(toggled,false)) {

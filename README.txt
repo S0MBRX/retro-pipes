@@ -1,5 +1,5 @@
-RETRO PIPES 1.6
-Classic-inspired 3D pipes, fireworks and bubbles, alone or layered together.
+RETRO PIPES 1.7
+Classic-inspired 3D pipes, fireworks, bubbles and a bouncing DVD logo, alone or layered together.
 
 START HERE
 Double-click RetroPipes.exe. No installer or administrator access is needed.
@@ -27,11 +27,11 @@ The screensaver itself is an animation, not a screen-locking utility.
 WINDOW PREVIEW
 Click Window preview. Space pauses/resumes; R starts a new scene;
 Esc closes it. Pipe scenes reset when full; effects-only scenes reset
-after 35-60 seconds. Each reset also rerolls enabled random settings.
+after 35-60 seconds (fixed DVD-only playback has no timed reset). Each reset also rerolls enabled random settings.
 
 LAYERS
 Choose Manual or Randomized from the top dropdown. Both use one settings frame.
-Tick Pipes, Fireworks and/or Bubbles inside the frame to overlap effects.
+Tick Pipes, Fireworks, Bubbles and/or DVD logo inside the frame to overlap effects.
 Advanced opens teapots and effect amounts. In Randomized mode, it also shows
 individual Shuffle choices and rotation/layer probabilities.
 Changing modes keeps your entered numbers. Redundant preset buttons are gone.
@@ -57,20 +57,39 @@ The app starts fresh views automatically when monitors are added, removed,
 resized or rearranged, keeping your selected settings. Hardware and Windows
 display support determine practical limits.
 
+DRIFTING CAMERA ORBIT
+Enable Drifting camera orbit for a slowly changing pitch, gentle roll and
+shifting aim point. It moves above and below the scene rather than holding
+the same downward angle. Shared screens use the same camera. Pipe growth
+speed does not change. Disable it for the original fixed view.
+
+DVD LOGO
+Select DVD logo alone or overlap it with any of the other three effects.
+The logo bounces off edges and changes colour on impact. Separate screens
+have independent logos; spanning shares one across the desktop rectangle,
+including crossing internal monitor boundaries. Gaps can hide it temporarily.
+Advanced contains its random appearance chance. Full Random includes DVD.
+A fixed DVD-only scene bounces continuously without timed resets.
+
+DEFAULT LIMITS
+Speed defaults to 25, pipe count to 10. In Randomized mode these are upper
+limits. Their sliders use the same ranges; typed overrides can go higher.
+Full Random's second click restores these defaults, with only pipes selected.
+
 TEAPOT EASTER EGG
 Enabled by default, with a 0.5% chance of a Utah teapot at each pipe bend.
 Open Advanced to change the chance from 0-100% or disable teapots.
 
 COLOURS
 Classic: bright glossy colours. Electric: cyan, pink and violet.
-Chrome: silver tones. Slow scene rotation is optional.
+Chrome: silver tones. Drifting camera orbit is optional.
 Each layout picks a random starting colour from the selected theme, so a
 single pipe can use any of its colours, even with random settings turned off.
 
 NUMBER BOXES AND RANDOMIZATION
 Type directly into the number box to the right of each slider.
-The speed slider covers 1-10; its number box accepts 1-1000.
-The pipe-count slider covers 1-9; its number box accepts 1-500.
+The speed slider covers 1-25; its number box accepts 1-1000.
+The pipe-count slider covers 1-10; its number box accepts 1-500.
 The slider stays at its end when you enter a larger value; that larger
 number is still used. Dragging the slider chooses a value in its usual range.
 Settings are saved when starting a mode or closing the controls.
@@ -78,7 +97,7 @@ Settings are saved when starting a mode or closing the controls.
 Choose Randomized, then open Advanced and tick only the options to shuffle.
 Speed and Count use 1 to your entered values; Colour chooses a theme.
 Rotation chance rolls rotation on/off at your chosen percentage.
-Pipes, Fireworks and Bubbles chance each roll their own layer on/off.
+Pipes, Fireworks, Bubbles and DVD chance each roll their own layer on/off.
 Unchecked Shuffle options follow their manual values.
 Manual switches are dimmed while Shuffle controls the result.
 Random effect density uses 1 to your firework intensity and bubble count.
@@ -89,8 +108,8 @@ from zero to your entered maximum. Leave Shuffle off to keep it fixed.
 Full Random is a toggle, not a button that replaces your numeric values.
 First click: enable every layer, rotation, teapots and every shuffle option,
 using your current numbers and probabilities. The button reads Full Random: On.
-Second click: return to Manual and restore basic defaults (pipes only, speed 5,
-count 5, Classic colours, rotation off, teapots at 0.5%, fireworks 4, bubbles 16).
+Second click: return to Manual and restore basic defaults (pipes only, speed 25,
+count 10, Classic colours, rotation off, teapots at 0.5%, fireworks 4, bubbles 16).
 Default shuffle choices and probabilities are restored too.
 Your spanning/separate-screen choice stays unchanged. Preview or start to apply.
 The on/off label reflects the current options, including after reopening.
@@ -107,7 +126,7 @@ and the tray's Roll new scenes on every screen command. Your manual settings
 stay saved. Random values can sometimes coincide across screens by chance.
 Use Current screen settings in the tray to inspect each monitor's roll.
 If all layer rolls are off, one manually selected layer remains visible
-(Fireworks first, then Bubbles, then Pipes). Choosing Manual uses
+(DVD first, then Fireworks, Bubbles and Pipes). Choosing Manual uses
 your manual settings on all screens with independent animation paths.
 
 REQUIREMENTS AND NOTES
