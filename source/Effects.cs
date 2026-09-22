@@ -72,7 +72,7 @@ class Effects {
         }
     }
     static void Colour(Color c,double alpha) { GL.glColor4f(c.R/255f,c.G/255f,c.B/255f,(float)alpha); }
-    public void Draw(double ratio,double[] clip=null) {
+    public void Draw(double ratio,double[] clip=null,uint dvdTexture=0) {
         aspect=Math.Max(0.4,ratio);
         GL.glDisable(0x0B50); GL.glDisable(0x0B71); GL.glEnable(0x0BE2);
         GL.glMatrixMode(0x1701); GL.glPushMatrix(); GL.glLoadIdentity();
@@ -80,7 +80,7 @@ class Effects {
         GL.glMatrixMode(0x1700); GL.glPushMatrix(); GL.glLoadIdentity();
         if(settings.Fireworks) DrawFireworks();
         if(settings.Bubbles) DrawBubbles();
-        if(Dvd!=null) Dvd.Draw();
+        if(Dvd!=null) Dvd.Draw(dvdTexture);
         GL.glPopMatrix(); GL.glMatrixMode(0x1701); GL.glPopMatrix(); GL.glMatrixMode(0x1700);
         GL.glDisable(0x0BE2); GL.glEnable(0x0B71); GL.glEnable(0x0B50);
     }

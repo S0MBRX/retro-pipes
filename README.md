@@ -6,7 +6,7 @@ Classic-inspired 3D pipes, fireworks, glass bubbles and a bouncing DVD logo. Run
 
 ## Download and run
 
-Download **Retro-Pipes-v1.8.zip** from the [latest release](https://github.com/S0MBRX/retro-pipes/releases/latest), extract it, and open **RetroPipes.exe**.
+Download **Retro-Pipes-v1.8.1.zip** from the [latest release](https://github.com/S0MBRX/retro-pipes/releases/latest), extract it, and open **RetroPipes.exe**.
 
 - **Start wallpaper** animates behind desktop icons. Use its system-tray icon to open controls or stop it.
 - **Try screensaver** fills your displays. Move the mouse or press any key to exit.
@@ -47,7 +47,7 @@ Tick **Drifting camera orbit** for a slow orbit whose pitch gradually moves abov
 
 ### Bouncing DVD logo
 
-Tick **DVD logo** by itself or alongside any other effects. The coloured, slanted DVD lettering and disc are drawn as vector geometry. The whole logo reflects off screen edges, changes colour on impact, and keeps moving through delayed frames without losing the travelled distance. In separate-screen mode, each screen has its own logo and trajectory. In spanning mode, one logo travels across the combined desktop rectangle, crossing internal monitor boundaries naturally. Monitor gaps within that rectangle can temporarily hide the logo.
+Tick **DVD logo** by itself or alongside any other effects. The DVD-Video mark uses an embedded 960-pixel transparent PNG with its original lettering, disc and VIDEO detail, sourced from [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:DVD-Video_Logo.svg). Its alpha channel preserves smooth edges and transparent holes while the renderer applies each bounce colour. The whole logo reflects off screen edges, changes colour on impact, and keeps moving through delayed frames without losing the travelled distance. In separate-screen mode, each screen has its own logo and trajectory. In spanning mode, one logo travels across the combined desktop rectangle, crossing internal monitor boundaries naturally. Monitor gaps within that rectangle can temporarily hide the logo.
 
 **Advanced... → DVD chance** controls whether it appears in randomized scenes. Full Random includes DVD; returning to defaults leaves only pipes selected. A fixed DVD-only scene runs continuously without the other effects' timed resets.
 

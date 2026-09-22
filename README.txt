@@ -1,4 +1,4 @@
-RETRO PIPES 1.8
+RETRO PIPES 1.8.1
 Classic-inspired 3D pipes, fireworks, bubbles and a bouncing DVD logo, alone or layered together.
 
 START HERE
@@ -74,7 +74,7 @@ speed does not change. Disable it for the original fixed view.
 
 DVD LOGO
 Select DVD logo alone or overlap it with any of the other three effects.
-The logo bounces off edges and changes colour on impact. Separate screens
+The embedded transparent DVD-Video PNG includes the VIDEO detail and smooth edges. The logo bounces off edges and changes colour on impact. Separate screens
 have independent logos; spanning shares one across the desktop rectangle,
 including crossing internal monitor boundaries. Gaps can hide it temporarily.
 Advanced contains its random appearance chance. Full Random includes DVD.

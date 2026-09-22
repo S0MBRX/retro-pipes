@@ -176,7 +176,7 @@ class Scene {
 
 class PipesWindow : Form {
     Settings settings,template; Random runRandom=new Random(Guid.NewGuid().GetHashCode()); string mode; Rectangle bounds; public IntPtr DesktopParent;
-    IntPtr dc,rc,quad; uint sphere,cylinder,teapot; Timer timer; Stopwatch clock=new Stopwatch(); double last; Point mouse; bool cursorHidden;
+    IntPtr dc,rc,quad; uint sphere,cylinder,teapot,dvdTexture; Timer timer; Stopwatch clock=new Stopwatch(); double last; Point mouse; bool cursorHidden;
     internal Effects Effects; double effectDuration,worldHeightScale=1;
     PipesWindow sceneOwner; Rectangle? sharedCanvas; bool reconfiguring; event Action FrameReady;
     internal PipesWindow SceneOwner { get { return sceneOwner??this; } }
@@ -310,8 +310,9 @@ class PipesWindow : Form {
             foreach(var s in Scene.Segments) DrawSegment(s,1);
             foreach(var p in Scene.Pipes) if(p.Growing!=null) DrawSegment(p.Growing,Math.Min(1,p.Progress));
         }
-        if(sharedCanvas.HasValue) Effects.Draw((double)sharedCanvas.Value.Width/sharedCanvas.Value.Height,DisplayLayout.Slice(sharedCanvas.Value,bounds,1));
-        else Effects.Draw(aspect);
+        if(Effects.Dvd!=null&&dvdTexture==0) dvdTexture=DvdTexture.Create();
+        if(sharedCanvas.HasValue) Effects.Draw((double)sharedCanvas.Value.Width/sharedCanvas.Value.Height,DisplayLayout.Slice(sharedCanvas.Value,bounds,1),dvdTexture);
+        else Effects.Draw(aspect,null,dvdTexture);
         GL.glFlush(); if(swap) Native.SwapBuffers(dc);
     }
     public void SaveFrame(string path) {
@@ -328,7 +329,7 @@ class PipesWindow : Form {
     protected override void OnFormClosed(FormClosedEventArgs e) {
         ready=false; if(timer!=null) timer.Dispose(); if(cursorHidden) Cursor.Show();
         if(sceneOwner!=null) sceneOwner.FrameReady-=OnSharedFrame;
-        if(rc!=IntPtr.Zero) { GL.wglMakeCurrent(dc,rc); if(sphere!=0) GL.glDeleteLists(sphere,3); if(quad!=IntPtr.Zero) GL.gluDeleteQuadric(quad); GL.wglMakeCurrent(IntPtr.Zero,IntPtr.Zero); GL.wglDeleteContext(rc); }
+        if(rc!=IntPtr.Zero) { GL.wglMakeCurrent(dc,rc); if(dvdTexture!=0) GL.glDeleteTextures(1,ref dvdTexture); if(sphere!=0) GL.glDeleteLists(sphere,3); if(quad!=IntPtr.Zero) GL.gluDeleteQuadric(quad); GL.wglMakeCurrent(IntPtr.Zero,IntPtr.Zero); GL.wglDeleteContext(rc); }
         if(dc!=IntPtr.Zero) Native.ReleaseDC(Handle,dc); base.OnFormClosed(e);
         if(mode=="saver"&&!reconfiguring) Application.Exit();
     }
@@ -688,6 +689,13 @@ static class GL {
     [DllImport("opengl32.dll")] public static extern void glColor3f(float r,float g,float b);
     [DllImport("opengl32.dll")] public static extern void glPushMatrix();
     [DllImport("opengl32.dll")] public static extern void glPopMatrix();
+    [DllImport("opengl32.dll")] public static extern void glGenTextures(int count,out uint texture);
+    [DllImport("opengl32.dll")] public static extern void glDeleteTextures(int count,ref uint texture);
+    [DllImport("opengl32.dll")] public static extern void glBindTexture(uint target,uint texture);
+    [DllImport("opengl32.dll")] public static extern void glTexParameteri(uint target,uint name,int value);
+    [DllImport("opengl32.dll")] public static extern void glPixelStorei(uint name,int value);
+    [DllImport("opengl32.dll")] public static extern void glTexImage2D(uint target,int level,int internalFormat,int width,int height,int border,uint format,uint type,byte[] pixels);
+    [DllImport("opengl32.dll")] public static extern void glTexCoord2d(double s,double t);
     [DllImport("opengl32.dll")] public static extern uint glGenLists(int range);
     [DllImport("opengl32.dll")] public static extern void glNewList(uint list,uint mode);
     [DllImport("opengl32.dll")] public static extern void glEndList();

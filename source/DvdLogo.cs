@@ -2,8 +2,7 @@ using System;
 using System.Drawing;
 
 namespace RetroPipes {
-// Original vector recreation: slanted DVD lettering and the elliptical disc.
-// Geometry stays inside the 220 x 100 drawing box used for edge collisions.
+// Bouncing DVD-Video PNG; its original aspect ratio also defines the hit box.
 class DvdLogo {
     public double X,Y,VX,VY;
     public readonly double HalfWidth,HalfHeight;
@@ -12,7 +11,7 @@ class DvdLogo {
     readonly double aspect; readonly Random random;
     public DvdLogo(Random rng,double ratio) {
         random=rng; aspect=ratio;
-        HalfWidth=Math.Min(0.25,aspect*0.38); HalfHeight=HalfWidth*100/220;
+        HalfWidth=Math.Min(0.25,aspect*0.38); HalfHeight=HalfWidth*DvdTexture.AspectRatio;
         X=(rng.NextDouble()*2-1)*(aspect-HalfWidth); Y=(rng.NextDouble()*2-1)*(1-HalfHeight);
         VX=(rng.Next(2)==0?-1:1)*0.18; VY=(rng.Next(2)==0?-1:1)*0.13;
         Colour=Effects.Hue(rng.NextDouble());
@@ -37,34 +36,18 @@ class DvdLogo {
             Colour=next;
         }
     }
-    static void Vertex(double x,double y) { GL.glVertex3d(x,y,0); }
-    static void LetterVertex(double x,double y) { Vertex(x+(y-38)*0.18,y); }
-    static void D(double x) {
-        GL.glBegin(7); LetterVertex(x,38); LetterVertex(x+16,38); LetterVertex(x+16,98); LetterVertex(x,98); GL.glEnd();
-        GL.glBegin(5);
-        for(int i=0;i<=40;i++) {
-            double a=Math.PI/2-i*Math.PI/40;
-            LetterVertex(x+16+43*Math.Cos(a),68+30*Math.Sin(a));
-            LetterVertex(x+16+25*Math.Cos(a),68+13*Math.Sin(a));
-        }
-        GL.glEnd();
-    }
-    public void Draw() {
+    public void Draw(uint texture) {
         GL.glBlendFunc(0x0302,0x0303); GL.glColor4f(Colour.R/255f,Colour.G/255f,Colour.B/255f,1);
-        GL.glPushMatrix(); GL.glTranslated(X-HalfWidth,Y-HalfHeight,0); GL.glScaled(HalfWidth*2/220,HalfHeight*2/100,1);
-        D(2); D(146);
+        GL.glEnable(0x0DE1); GL.glBindTexture(0x0DE1,texture);
+        double left=X-HalfWidth,right=X+HalfWidth,top=Y+HalfHeight,bottom=Y-HalfHeight;
         GL.glBegin(7);
-        LetterVertex(75,98); LetterVertex(94,98); LetterVertex(110,38); LetterVertex(91,38);
-        LetterVertex(91,38); LetterVertex(110,38); LetterVertex(143,98); LetterVertex(123,98);
-        GL.glEnd();
-        GL.glBegin(5);
-        for(int i=0;i<=96;i++) {
-            double a=i*Math.PI/48;
-            Vertex(110+106*Math.Cos(a),17+15*Math.Sin(a));
-            Vertex(110+28*Math.Cos(a),17+4*Math.Sin(a));
-        }
-        GL.glEnd(); GL.glPopMatrix();
+        GL.glTexCoord2d(0,0); GL.glVertex3d(left,top,0);
+        GL.glTexCoord2d(DvdTexture.U,0); GL.glVertex3d(right,top,0);
+        GL.glTexCoord2d(DvdTexture.U,DvdTexture.V); GL.glVertex3d(right,bottom,0);
+        GL.glTexCoord2d(0,DvdTexture.V); GL.glVertex3d(left,bottom,0);
+        GL.glEnd(); GL.glBindTexture(0x0DE1,0); GL.glDisable(0x0DE1);
     }
+
 }
 struct CameraPose { public double Pitch,Yaw,Roll,AimX,AimY; }
 }

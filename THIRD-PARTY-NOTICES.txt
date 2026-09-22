@@ -31,3 +31,11 @@ Wikimedia Commons identifies the wordmark as public-domain text/logo artwork.
 Windows and Windows XP are Microsoft trademarks. The accompanying waving
 four-colour flag is a vector recreation drawn by this app's interface code.
 Retro Pipes is an independent retro-themed application, not a Microsoft product.
+
+DVD-Video logo
+Author: DVD Format / Logo Licensing Company (DVD FLLC).
+Source: https://commons.wikimedia.org/wiki/File:DVD-Video_Logo.svg
+Included PNG: https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e7/DVD-Video_Logo.svg/960px-DVD-Video_Logo.svg.png
+Wikimedia Commons identifies this as public-domain text/logo artwork.
+The logo is a trademark of its respective owner. The app uses the PNG's
+transparency as an OpenGL mask to apply the animated bounce colours.
