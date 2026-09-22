@@ -1,4 +1,4 @@
-RETRO PIPES 1.7
+RETRO PIPES 1.8
 Classic-inspired 3D pipes, fireworks, bubbles and a bouncing DVD logo, alone or layered together.
 
 START HERE
@@ -42,7 +42,7 @@ Tick One continuous scene across all detected screens for one continuous scene a
 This works with wallpaper and the screensaver, including layered effects.
 The pipe speed and total count stay the same; the scene has more space and
 capacity. The fixed 105-second pipe cutoff is removed in this mode so paths
-can fill naturally or end when blocked. Random paths are not forced to visit
+can grow naturally until the geometry budget is reached or paths are blocked. Random paths are not forced to visit
 every screen. For one actual growing pipe, set Pipe count to 1.
 Random settings roll once for the whole spanning scene. Untick this option
 to return to independent scenes and random settings on each monitor.
@@ -56,6 +56,15 @@ the simulation speed. Scene space follows the combined desktop dimensions.
 The app starts fresh views automatically when monitors are added, removed,
 resized or rearranged, keeping your selected settings. Hardware and Windows
 display support determine practical limits.
+
+FREE-GROWING PIPE SHAPES
+The old rectangular growth box and shallow depth limit are removed.
+Any unoccupied neighbouring cell can be used. Pipes may grow beyond the
+screen edges, with a gradual preference for visible space and returning
+from far offscreen. This preference follows the camera and shared desktop.
+Starting points have varied depth and are distributed through the view.
+The classic right-angle turns and collision avoidance remain. Geometry
+budgets and scene resets keep memory bounded without imposing spatial walls.
 
 DRIFTING CAMERA ORBIT
 Enable Drifting camera orbit for a slowly changing pitch, gentle roll and

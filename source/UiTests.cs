@@ -48,6 +48,9 @@ static class UiTests {
         var settings=new Settings {Speed=125,Count=60,TeapotChance=0.5,SpanAllScreens=true};
         using(var launcher=new Launcher(settings,false)) {
             launcher.StartPosition=FormStartPosition.Manual; launcher.Location=new Point(-16000,-16000); launcher.Show(); Application.DoEvents();
+            // Settle the native combo's initial selection paint before comparing
+            // repeated transitions; first-show and post-selection native states differ.
+            launcher.modeSelector.SelectedIndex=1; launcher.modeSelector.SelectedIndex=0; Application.DoEvents(); launcher.Refresh();
             using(var baseline=new Bitmap(launcher.Width,launcher.Height)) using(var after=new Bitmap(launcher.Width,launcher.Height)) {
                 launcher.DrawToBitmap(baseline,launcher.ClientRectangle);
                 for(int i=0;i<30;i++) { launcher.modeSelector.SelectedIndex=1; launcher.Refresh(); launcher.modeSelector.SelectedIndex=0; launcher.Refresh(); }

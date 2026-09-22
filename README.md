@@ -6,7 +6,7 @@ Classic-inspired 3D pipes, fireworks, glass bubbles and a bouncing DVD logo. Run
 
 ## Download and run
 
-Download **Retro-Pipes-v1.7.zip** from the [latest release](https://github.com/S0MBRX/retro-pipes/releases/latest), extract it, and open **RetroPipes.exe**.
+Download **Retro-Pipes-v1.8.zip** from the [latest release](https://github.com/S0MBRX/retro-pipes/releases/latest), extract it, and open **RetroPipes.exe**.
 
 - **Start wallpaper** animates behind desktop icons. Use its system-tray icon to open controls or stop it.
 - **Try screensaver** fills your displays. Move the mouse or press any key to exit.
@@ -32,6 +32,14 @@ Choose Classic, Electric or Chrome pipe colours, growth speed, pipe count and an
 Every layout picks a random starting colour from the selected theme. A single pipe can use any of the theme's colours, including when randomized settings are turned off.
 
 The number boxes accept **speed 1–1000** and **pipe count 1–500**, beyond the sliders' convenient ranges of 1–25 and 1–10. The default values (and randomized upper limits) are speed **25** and count **10**. Larger typed values remain active even though the slider stays at its end. Moving a slider selects a value within its regular range.
+
+### Free-growing pipe shapes
+
+Pipes no longer grow inside a hard rectangular box or fixed shallow depth slab. Every unoccupied neighbouring cell remains eligible, including beyond the screen edges. A smooth, camera-aware preference favours visible space and gently pulls distant growth back toward it. Offscreen travel is still possible; there are no reflecting walls.
+
+Starting points are spread through the current camera view with varied depth. The bias follows the drifting orbit and works over the full shared desktop when spanning. Straight runs and turns remain random, with classic right-angle joints and collision avoidance. Scene complexity budgets and resets still prevent geometry from accumulating forever; these are not spatial boundaries.
+
+![Irregular free-growing pipe shapes](Free-growth-preview.png)
 
 ### Drifting camera orbit
 
@@ -79,7 +87,7 @@ Tick **One continuous scene across all detected screens**, then start wallpaper 
 
 There is no hard-coded monitor count. The app enumerates all connected displays. In spanning mode each monitor renders a matching section of one shared simulation, avoiding a single enormous rendering window. The simulation advances once per frame, irrespective of monitor count. The app automatically starts fresh views when displays are connected, disconnected, resized or rearranged; your selected settings remain in effect. Wallpaper also retries its desktop attachment after Explorer restarts. Available display and graphics hardware still determine practical capacity.
 
-The pipe growth speed and total pipe count are unchanged. The scene gains more space and more capacity, and spanning removes the fixed 105-second pipe-scene cutoff so growth can continue naturally until the pipes fill their available paths or get stuck. Pipes follow random paths, so they are not forced to cover every part of the desktop. Set pipe count to **1** for one growing pipe in the shared scene.
+The pipe growth speed and total pipe count are unchanged. The scene gains more space and more capacity, and spanning removes the fixed 105-second pipe-scene cutoff so growth can continue naturally until the scene reaches its geometry budget or pipes get stuck. Pipes follow random paths, so they are not forced to cover every part of the desktop. Set pipe count to **1** for one growing pipe in the shared scene.
 
 Random settings roll once for the entire spanning scene. Untick the option to restore independent scenes and random rolls per monitor. Window preview adopts the desktop's wide/tall aspect ratio. Start wallpaper again to apply changes made to the app's own settings; physical display layout changes are handled automatically.
 
@@ -118,6 +126,6 @@ if ($process.ExitCode -ne 0) { throw 'Self-test failed. See work/test-error.txt.
 Get-Content .\work\test-results.txt
 ```
 
-The tests exercise selective random settings, 0%/100% chances, old-settings migration, extended values, serialization, high-speed growth, dense scenes, collision avoidance, scene cycling, teapot generation, all fifteen layer combinations, three simultaneous independent screen cycles, layouts with 1–64 displays, view rebuilding for 1/5/2 displays, seamless shared projections, rendered-slice comparison against a full scene, unchanged spanning growth speed/count, desktop attachment, bounded effects, OpenGL rendering, preview embedding and launcher controls. UI regression tests check clipped and translated repaints, removal of stale pixels, 30 mode switches, typed overrides, repeated Advanced-dialog opening, Full Random on/off/default restoration and persistence, and teapot randomization. DVD tests cover edges/corners, colour changes, long frames, portrait and panoramic bounds, uninterrupted standalone playback, chance endpoints and saved settings. Camera tests check smooth changing angles and a stable disabled state; shared-view comparisons include the orbit and DVD overlay. The clipping regression fails against the previous drawing code and passes with the fix. Test windows are placed offscreen. Tests leave saved user settings unchanged. Layout tests simulate large monitor counts; physical desktop attachment was tested on a three-monitor setup.
+The tests exercise selective random settings, 0%/100% chances, old-settings migration, extended values, serialization, high-speed growth, dense scenes, collision avoidance, growth through all six former boundaries, positive soft-bias weights and an offscreen return preference, scene cycling, teapot generation, all fifteen layer combinations, three simultaneous independent screen cycles, layouts with 1–64 displays, view rebuilding for 1/5/2 displays, seamless shared projections, rendered-slice comparison against a full scene, unchanged spanning growth speed/count, desktop attachment, bounded effects, OpenGL rendering, preview embedding and launcher controls. UI regression tests check clipped and translated repaints, removal of stale pixels, 30 mode switches, typed overrides, repeated Advanced-dialog opening, Full Random on/off/default restoration and persistence, and teapot randomization. DVD tests cover edges/corners, colour changes, long frames, portrait and panoramic bounds, uninterrupted standalone playback, chance endpoints and saved settings. Camera tests check smooth changing angles and a stable disabled state; shared-view comparisons include the orbit and DVD overlay. The clipping regression fails against the previous drawing code and passes with the fix. Test windows are placed offscreen. Tests leave saved user settings unchanged. Layout tests simulate large monitor counts; physical desktop attachment was tested on a three-monitor setup.
 
 See [README.txt](README.txt) for command-line modes and uninstall instructions.

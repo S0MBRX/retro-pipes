@@ -96,14 +96,15 @@ struct Cell : IEquatable<Cell> {
     public static Cell operator+(Cell a,Cell b) { return new Cell(a.X+b.X,a.Y+b.Y,a.Z+b.Z); }
     public bool Equals(Cell b) { return X==b.X&&Y==b.Y&&Z==b.Z; }
     public override bool Equals(object o) { return o is Cell && Equals((Cell)o); }
-    public override int GetHashCode() { return (X+32)*4096+(Y+32)*64+Z+32; }
+    public override int GetHashCode() { unchecked { return (X*73856093)^(Y*19349663)^(Z*83492791); } }
 }
 class Segment { public Cell A,B; public Color Color; public bool Joint,Teapot; }
 class Pipe { public Cell At,Direction; public Color Color; public Segment Growing; public double Progress; public bool Dead; }
 class Scene {
     public List<Segment> Segments=new List<Segment>(); public List<Pipe> Pipes=new List<Pipe>();
     public HashSet<Cell> Occupied=new HashSet<Cell>(); public int Resets; public double Age;
-    readonly double cameraPhase,cameraPhase2;
+    readonly double cameraPhase,cameraPhase2,viewAspect,viewHeightScale;
+    GrowthView growthView;
     Random rng; Settings settings; int halfX=10,halfY=6; int target=460; double hold;
     internal int HalfWidth { get { return halfX; } }
     internal int HalfHeight { get { return halfY; } }
@@ -111,7 +112,7 @@ class Scene {
     static readonly Cell[] directions={new Cell(1,0,0),new Cell(-1,0,0),new Cell(0,1,0),new Cell(0,-1,0),new Cell(0,0,1),new Cell(0,0,-1)};
     static readonly Color[][] palettes={ new[]{Color.FromArgb(230,36,53),Color.FromArgb(30,186,70),Color.FromArgb(35,95,240),Color.FromArgb(246,189,30),Color.FromArgb(190,42,225),Color.FromArgb(14,196,206),Color.FromArgb(245,108,24)}, new[]{Color.FromArgb(0,217,233),Color.FromArgb(248,32,143),Color.FromArgb(135,64,240),Color.FromArgb(62,238,191)},new[]{Color.FromArgb(178,196,215),Color.FromArgb(210,216,224),Color.FromArgb(136,163,195)} };
     public Scene(Settings s,int seed,double aspect,double heightScale=1) {
-        settings=s; rng=new Random(seed);
+        settings=s; rng=new Random(seed); viewAspect=Math.Max(0.4,aspect); viewHeightScale=heightScale;
         var cameraRandom=new Random(seed^0x6A13F5); cameraPhase=cameraRandom.NextDouble()*Math.PI*2; cameraPhase2=cameraRandom.NextDouble()*Math.PI*2;
         halfX=s.SpanAllScreens?Math.Max(5,(int)(aspect*heightScale*9.2)):Math.Max(5,Math.Min(20,(int)(aspect*6.4)));
         halfY=s.SpanAllScreens?Math.Max(6,(int)(heightScale*8.0)):6;
@@ -128,26 +129,36 @@ class Scene {
     }
     public void Reset() {
         Segments.Clear(); Pipes.Clear(); Occupied.Clear(); Age=0; hold=0; Resets++;
+        growthView=ViewAt(0);
         var pal=palettes[settings.Palette];
         int colourOffset=rng.Next(pal.Length);
         for(int i=0;i<settings.Count;i++) {
-            Cell start; do { start=new Cell(rng.Next(-halfX,halfX+1),rng.Next(-halfY,halfY+1),rng.Next(-4,5)); } while(Occupied.Contains(start));
+            Cell start; do { start=growthView.Spawn(rng); } while(Occupied.Contains(start));
             Occupied.Add(start); Pipes.Add(new Pipe { At=start,Color=pal[(i+colourOffset)%pal.Length] });
         }
     }
-    bool Inside(Cell c) { return Math.Abs(c.X)<=halfX && Math.Abs(c.Y)<=halfY && Math.Abs(c.Z)<=4; }
+    internal GrowthView ViewAt(double time) { return new GrowthView(CameraAt(time,settings.Rotate),viewAspect,settings.SpanAllScreens,viewHeightScale,halfX,halfY); }
+    internal double DirectionWeight(Cell from,Cell direction,Cell heading) {
+        double difference=growthView.Cost(from)-growthView.Cost(from+direction);
+        return (direction.Equals(heading)?2.4:1)*Math.Exp(Math.Max(-3,Math.Min(3,difference*2.5)));
+    }
     void Grow(Pipe p) {
-        var choices=new List<Cell>(); foreach(var d in directions) if(Inside(p.At+d)&&!Occupied.Contains(p.At+d)) choices.Add(d);
-        if(choices.Count==0) { p.Dead=true; return; }
-        Cell dir=choices[rng.Next(choices.Count)];
-        if(choices.Contains(p.Direction)&&rng.NextDouble()<0.48) dir=p.Direction;
+        // Every unoccupied neighbour is eligible, even beyond the old scene box.
+        // Weighted sampling gently favours the current camera's visible area.
+        double total=0; Cell dir=new Cell();
+        foreach(var candidate in directions) {
+            if(Occupied.Contains(p.At+candidate)) continue;
+            double weight=DirectionWeight(p.At,candidate,p.Direction); total+=weight;
+            if(rng.NextDouble()*total<weight) dir=candidate;
+        }
+        if(total==0) { p.Dead=true; return; }
         Cell next=p.At+dir; Occupied.Add(next);
         bool joint=!dir.Equals(p.Direction);
         p.Growing=new Segment { A=p.At,B=next,Color=p.Color,Joint=joint,Teapot=settings.Teapots&&joint&&rng.NextDouble()*100<settings.TeapotChance };
         p.Direction=dir; p.Progress=0;
     }
     public void Step(double dt) {
-        Age+=dt;
+        Age+=dt; growthView=ViewAt(Age);
         bool allDead=true;
         foreach(var p in Pipes) {
             if(p.Dead) continue; allDead=false;
@@ -437,13 +448,13 @@ static class Tests {
                     var cells=new HashSet<Cell>(); foreach(var s in scene.Segments) {
                         if(Math.Abs(s.A.X-s.B.X)+Math.Abs(s.A.Y-s.B.Y)+Math.Abs(s.A.Z-s.B.Z)!=1) throw new Exception("Non-axis-aligned pipe");
                         if(!cells.Add(s.B)) throw new Exception("Pipe collision");
-                        if(Math.Abs(s.B.X)>10||Math.Abs(s.B.Y)>6||Math.Abs(s.B.Z)>4) throw new Exception("Pipe outside bounds");
+                        if(!scene.Occupied.Contains(s.B)) throw new Exception("Pipe endpoint lost from collision tracking");
                     }
                 }
             }
             if(scene.Resets<2) throw new Exception("Scene did not cycle");
         }
-        log.Add("PASS: 180,000 simulation updates across 30 seeds; axis alignment, unique endpoints, bounds, automatic reset.");
+        log.Add("PASS: 180,000 simulation updates across 30 seeds; axis alignment, unique endpoints, collision tracking, automatic reset.");
         for(int mask=1;mask<=15;mask++) {
             var modes=new Settings {Pipes=(mask&1)!=0,Fireworks=(mask&2)!=0,Bubbles=(mask&4)!=0,Dvd=(mask&8)!=0,TeapotChance=mask==1?25:0.5,FireworkRate=6};
             using(var w=new PipesWindow(modes,"test",new Rectangle(0,0,1200,750),IntPtr.Zero,101)) {
@@ -590,6 +601,8 @@ static class Tests {
         log.Add("PASS: launcher controls render and close cleanly.");
         UiTests.Run(dir);
         DvdTests.Run(dir);
+        GrowthTests.Run(dir);
+        log.Add("PASS: unrestricted outward moves through all six former walls, camera-aware positive direction weights, inward preference offscreen and varied 3D layouts.");
         log.Add("PASS: DVD edges/corners, colour changes, delayed frames, portrait/panoramic bounds, standalone continuity, chance endpoints, persistence and smooth drifting orbit.");
         log.Add("PASS: clipped/translated paints, stale-pixel removal, 30 mode switches, typed overrides, reusable Advanced dialog, Full Random on/off/defaults and persistence, teapot randomization.");
         using(var resource=System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream("RetroPipes.ThirdPartyNotices"))
