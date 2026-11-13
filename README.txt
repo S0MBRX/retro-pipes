@@ -1,5 +1,6 @@
-RETRO PIPES 1.8.1
-Classic-inspired 3D pipes, fireworks, bubbles and a bouncing DVD logo, alone or layered together.
+RETRO PIPES 1.9
+Classic-inspired 3D pipes, fireworks, bubbles, a bouncing DVD logo and a
+music visualizer, alone or layered together.
 
 START HERE
 Double-click RetroPipes.exe. No installer or administrator access is needed.
@@ -31,7 +32,8 @@ after 35-60 seconds (fixed DVD-only playback has no timed reset). Each reset als
 
 LAYERS
 Choose Manual or Randomized from the top dropdown. Both use one settings frame.
-Tick Pipes, Fireworks, Bubbles and/or DVD logo inside the frame to overlap effects.
+Tick Pipes, Fireworks, Bubbles, DVD logo and/or Visualizer inside the frame
+to overlap effects. The visualizer always sits behind the other layers.
 Advanced opens teapots and effect amounts. In Randomized mode, it also shows
 individual Shuffle choices and rotation/layer probabilities.
 Changing modes keeps your entered numbers. Redundant preset buttons are gone.
@@ -39,7 +41,8 @@ Firework intensity accepts 1-30; bubble count accepts 1-100.
 
 SPAN ALL SCREENS
 Tick One continuous scene across all detected screens for one continuous scene across your desktop.
-This works with wallpaper and the screensaver, including layered effects.
+This works with wallpaper and the screensaver, including layered effects
+and the visualizer.
 The pipe speed and total count stay the same; the scene has more space and
 capacity. The fixed 105-second pipe cutoff is removed in this mode so paths
 can grow naturally until the geometry budget is reached or paths are blocked. Random paths are not forced to visit
@@ -73,12 +76,41 @@ the same downward angle. Shared screens use the same camera. Pipe growth
 speed does not change. Disable it for the original fixed view.
 
 DVD LOGO
-Select DVD logo alone or overlap it with any of the other three effects.
+Select DVD logo alone or overlap it with any of the other effects.
 The embedded transparent DVD-Video PNG includes the VIDEO detail and smooth edges. The logo bounces off edges and changes colour on impact. Separate screens
 have independent logos; spanning shares one across the desktop rectangle,
 including crossing internal monitor boundaries. Gaps can hide it temporarily.
 Advanced contains its random appearance chance. Full Random includes DVD.
 A fixed DVD-only scene bounces continuously without timed resets.
+
+MUSIC VISUALIZER
+Tick Visualizer for an audio-reactive background in the spirit of the
+early-2000s media player visualizations. It listens to whatever is playing
+on your default playback device through Windows' WASAPI loopback, so music,
+videos and games all drive it. No microphone is used and nothing is recorded,
+saved or sent. An in-house FFT measures bass, mids, treble, level and beats.
+Eight original presets:
+  Tunnel        polygon rings fly outward on bass hits through a zooming tunnel
+  Kaleidoscope  comets and a rose curve folded into 6-12 mirrored wedges
+  Vortex        a circular waveform swirling into a spinning whirlpool
+  Ribbons       three light trails steered by the bass, mids and treble
+  Smoke         soft coloured clouds curling and drifting upward
+  Bars          32 spectrum bars from 50 Hz to 16 kHz with falling peaks
+  Scope         a triggered oscilloscope wave with a mirrored echo
+  Starburst     mirrored spectrum spokes radiating from the centre
+Visualizer preset on the main panel: "Random, changing each scene" (default)
+picks a new preset every 35-60 seconds with a crossfade, never the same one
+twice in a row. Pick one preset to keep it; its colours and shape still vary.
+R in a preview and the tray's Roll new scenes also change it.
+With no sound, or no playback device, it shows a slow, calm idle animation
+instead of going black. It follows a change of default device within ~2 s.
+Separate screens each get their own visualizer and preset. Spanning shares
+one across the desktop, split into mirrored panels about 16:9 each so the
+pattern meets seamlessly at monitor edges instead of stretching.
+It is off by default. Full Random leaves it as it is; its defaults switch it
+off. For random scenes, tick Shuffle beside Visualizer chance in Advanced.
+Feedback effects render at reduced resolution and audio capture runs only
+while a visualizer is showing, so CPU and GPU use stay low.
 
 DEFAULT LIMITS
 Speed defaults to 25, pipe count to 10. In Randomized mode these are upper
@@ -106,7 +138,8 @@ Settings are saved when starting a mode or closing the controls.
 Choose Randomized, then open Advanced and tick only the options to shuffle.
 Speed and Count use 1 to your entered values; Colour chooses a theme.
 Rotation chance rolls rotation on/off at your chosen percentage.
-Pipes, Fireworks, Bubbles and DVD chance each roll their own layer on/off.
+Pipes, Fireworks, Bubbles, DVD and Visualizer chance each roll their own
+layer on/off.
 Unchecked Shuffle options follow their manual values.
 Manual switches are dimmed while Shuffle controls the result.
 Random effect density uses 1 to your firework intensity and bubble count.
@@ -117,8 +150,10 @@ from zero to your entered maximum. Leave Shuffle off to keep it fixed.
 Full Random is a toggle, not a button that replaces your numeric values.
 First click: enable every layer, rotation, teapots and every shuffle option,
 using your current numbers and probabilities. The button reads Full Random: On.
+The music visualizer keeps its own switch and Shuffle setting.
 Second click: return to Manual and restore basic defaults (pipes only, speed 25,
-count 10, Classic colours, rotation off, teapots at 0.5%, fireworks 4, bubbles 16).
+count 10, Classic colours, rotation off, teapots at 0.5%, fireworks 4, bubbles 16,
+visualizer off).
 Default shuffle choices and probabilities are restored too.
 Your spanning/separate-screen choice stays unchanged. Preview or start to apply.
 The on/off label reflects the current options, including after reopening.
@@ -135,12 +170,14 @@ and the tray's Roll new scenes on every screen command. Your manual settings
 stay saved. Random values can sometimes coincide across screens by chance.
 Use Current screen settings in the tray to inspect each monitor's roll.
 If all layer rolls are off, one manually selected layer remains visible
-(DVD first, then Fireworks, Bubbles and Pipes). Choosing Manual uses
+(Visualizer first, then DVD, Fireworks, Bubbles and Pipes). Choosing Manual uses
 your manual settings on all screens with independent animation paths.
 
 REQUIREMENTS AND NOTES
 Built for 64-bit Windows 10/11, using Windows' .NET Framework 4.x and OpenGL.
 No network access, downloaded assets or additional packages are required.
+The visualizer uses Windows' built-in WASAPI loopback on the default playback
+device; sound from apps in exclusive-mode audio cannot be heard by it.
 Wallpaper uses Explorer's WorkerW desktop surface. It was tested on this
 Windows 10 PC. Windows shell changes or other wallpaper apps can affect it.
 If Explorer restarts, wallpaper retries its desktop attachment automatically.

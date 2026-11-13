@@ -26,6 +26,10 @@ public class Settings {
     public bool RandomTeapots = false;
     public bool Dvd = false, RandomDvd = false;
     public int DvdChance = 35;
+    // Audio-reactive visualizer background. Preset -1 cycles random presets.
+    public bool Visualizer = false, RandomVisualizer = false;
+    public int VisualizerChance = 35, VisualizerPreset = -1;
+    public const int VisualizerPresets = 8;
     public const int MaxSpeed = 1000, MaxCount = 500;
     public static string FilePath { get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "RetroPipes", "settings.xml"); } }
     public static Settings Load() { try { using(var s = File.OpenRead(FilePath)) return (Settings)new XmlSerializer(typeof(Settings)).Deserialize(s); } catch { return new Settings(); } }
@@ -36,7 +40,8 @@ public class Settings {
         FireworkRate=Math.Max(1,Math.Min(30,FireworkRate)); BubbleCount=Math.Max(1,Math.Min(100,BubbleCount));
         TeapotChance=double.IsNaN(TeapotChance)?0.5:Math.Max(0,Math.Min(100,TeapotChance));
         RotationChance=Percent(RotationChance); PipesChance=Percent(PipesChance); FireworksChance=Percent(FireworksChance); BubblesChance=Percent(BubblesChance); DvdChance=Percent(DvdChance);
-        if(!Pipes&&!Fireworks&&!Bubbles&&!Dvd) Pipes=true;
+        VisualizerChance=Percent(VisualizerChance); VisualizerPreset=Math.Max(-1,Math.Min(VisualizerPresets-1,VisualizerPreset));
+        if(!Pipes&&!Fireworks&&!Bubbles&&!Dvd&&!Visualizer) Pipes=true;
     }
     static int Percent(int n) { return Math.Max(0,Math.Min(100,n)); }
     public Settings ForRun(Random random) {
@@ -53,8 +58,9 @@ public class Settings {
             if(RandomDvd) result.Dvd=random.Next(100)<result.DvdChance;
             if(RandomEffectDensity) { result.FireworkRate=random.Next(1,result.FireworkRate+1); result.BubbleCount=random.Next(1,result.BubbleCount+1); }
             if(RandomTeapots) { result.Teapots=random.Next(2)==1; result.TeapotChance=Math.Round(random.NextDouble()*result.TeapotChance,2); }
+            if(RandomVisualizer) result.Visualizer=random.Next(100)<result.VisualizerChance;
             // Keep one of the manual layers if all chance rolls are off.
-            if(!result.Pipes&&!result.Fireworks&&!result.Bubbles&&!result.Dvd) { if(Dvd) result.Dvd=true; else if(Fireworks) result.Fireworks=true; else if(Bubbles) result.Bubbles=true; else result.Pipes=true; }
+            if(!result.Pipes&&!result.Fireworks&&!result.Bubbles&&!result.Dvd&&!result.Visualizer) { if(Visualizer) result.Visualizer=true; else if(Dvd) result.Dvd=true; else if(Fireworks) result.Fireworks=true; else if(Bubbles) result.Bubbles=true; else result.Pipes=true; }
         }
         return result;
     }
@@ -178,10 +184,11 @@ class PipesWindow : Form {
     Settings settings,template; Random runRandom=new Random(Guid.NewGuid().GetHashCode()); string mode; Rectangle bounds; public IntPtr DesktopParent;
     IntPtr dc,rc,quad; uint sphere,cylinder,teapot,dvdTexture; Timer timer; Stopwatch clock=new Stopwatch(); double last; Point mouse; bool cursorHidden;
     internal Effects Effects; double effectDuration,worldHeightScale=1;
+    internal Visualizer Visualizer; VisualizerSurface visualizerSurface;
     PipesWindow sceneOwner; Rectangle? sharedCanvas; bool reconfiguring; event Action FrameReady;
     internal PipesWindow SceneOwner { get { return sceneOwner??this; } }
     internal Settings CurrentSettings { get { return SceneOwner.settings; } }
-    public string Description { get { var s=CurrentSettings; return (s.Pipes?"Pipes ":"")+(s.Fireworks?"Fireworks ":"")+(s.Bubbles?"Bubbles ":"")+(s.Dvd?"DVD ":"")+"| speed "+s.Speed+", pipes "+s.Count+", colour "+new[]{"Classic","Electric","Chrome"}[s.Palette]+", rotation "+(s.Rotate?"on":"off"); } }
+    public string Description { get { var s=CurrentSettings; return (s.Pipes?"Pipes ":"")+(s.Fireworks?"Fireworks ":"")+(s.Bubbles?"Bubbles ":"")+(s.Dvd?"DVD ":"")+(SceneOwner.Visualizer!=null?"Visualizer ("+SceneOwner.Visualizer.Name+") ":"")+"| speed "+s.Speed+", pipes "+s.Count+", colour "+new[]{"Classic","Electric","Chrome"}[s.Palette]+", rotation "+(s.Rotate?"on":"off"); } }
     public Scene Scene; public string Renderer; bool ready; bool paused;
     public PipesWindow(Settings s,string m,Rectangle b,IntPtr parent,int? seed=null,PipesWindow owner=null,Rectangle? canvas=null) {
         sceneOwner=owner; sharedCanvas=canvas;
@@ -264,6 +271,9 @@ class PipesWindow : Form {
         }
         Scene=new Scene(settings,runRandom.Next(),aspect,worldHeightScale); Effects=new Effects(settings,runRandom.Next(),aspect);
         effectDuration=35+runRandom.NextDouble()*25;
+        // The visualizer carries over between scenes and changes preset with a crossfade.
+        if(settings.Visualizer) { if(Visualizer==null) Visualizer=new Visualizer(settings.VisualizerPreset,runRandom.Next()); else Visualizer.NewScene(); }
+        else if(Visualizer!=null) { Visualizer.Dispose(); Visualizer=null; }
     }
     internal void Advance(double dt) {
         if(sceneOwner!=null) return;
@@ -272,6 +282,7 @@ class PipesWindow : Form {
             if(Scene.Resets!=cycle) { ResetScene(); return; }
         } else { Scene.Age+=dt; if(Scene.Age>=effectDuration&&(template.RandomizeEachRun||settings.Fireworks||settings.Bubbles)) { ResetScene(); return; } }
         Effects.Step(dt);
+        if(Visualizer!=null) Visualizer.Step(dt);
     }
     protected override void OnPaintBackground(PaintEventArgs e) { }
     protected override void OnPaint(PaintEventArgs e) { if(ready) Draw(true); }
@@ -287,9 +298,13 @@ class PipesWindow : Form {
         Ball(s.A.X+dx*progress,s.A.Y+dy*progress,s.A.Z+dz*progress,r);
     }
     public void Draw(bool swap) {
-        var source=SceneOwner; var settings=source.settings; var Scene=source.Scene; var Effects=source.Effects;
+        var source=SceneOwner; var settings=source.settings; var Scene=source.Scene; var Effects=source.Effects; var visualizer=source.Visualizer;
         GL.wglMakeCurrent(dc,rc); int w=Math.Max(1,ClientSize.Width),h=Math.Max(1,ClientSize.Height); double aspect=(double)w/h;
+        double canvasAspect=sharedCanvas.HasValue?(double)sharedCanvas.Value.Width/sharedCanvas.Value.Height:aspect;
+        if(visualizer!=null) { if(visualizerSurface==null) visualizerSurface=new VisualizerSurface(); visualizerSurface.Render(visualizer,w,h,canvasAspect); }
+        else if(visualizerSurface!=null) { visualizerSurface.Delete(); visualizerSurface=null; }
         GL.glViewport(0,0,w,h); GL.glClearColor(0,0,0,1); GL.glClear(0x4100);
+        if(visualizer!=null) visualizerSurface.Display(visualizer,canvasAspect,sharedCanvas.HasValue?DisplayLayout.Slice(sharedCanvas.Value,bounds,1):null);
         GL.glMatrixMode(0x1701); GL.glLoadIdentity(); double top=0.41421356;
         double cameraDistance=27;
         if(settings.SpanAllScreens) {
@@ -329,7 +344,8 @@ class PipesWindow : Form {
     protected override void OnFormClosed(FormClosedEventArgs e) {
         ready=false; if(timer!=null) timer.Dispose(); if(cursorHidden) Cursor.Show();
         if(sceneOwner!=null) sceneOwner.FrameReady-=OnSharedFrame;
-        if(rc!=IntPtr.Zero) { GL.wglMakeCurrent(dc,rc); if(dvdTexture!=0) GL.glDeleteTextures(1,ref dvdTexture); if(sphere!=0) GL.glDeleteLists(sphere,3); if(quad!=IntPtr.Zero) GL.gluDeleteQuadric(quad); GL.wglMakeCurrent(IntPtr.Zero,IntPtr.Zero); GL.wglDeleteContext(rc); }
+        else if(Visualizer!=null) { Visualizer.Dispose(); Visualizer=null; }
+        if(rc!=IntPtr.Zero) { GL.wglMakeCurrent(dc,rc); if(visualizerSurface!=null) visualizerSurface.Delete(); if(dvdTexture!=0) GL.glDeleteTextures(1,ref dvdTexture); if(sphere!=0) GL.glDeleteLists(sphere,3); if(quad!=IntPtr.Zero) GL.gluDeleteQuadric(quad); GL.wglMakeCurrent(IntPtr.Zero,IntPtr.Zero); GL.wglDeleteContext(rc); }
         if(dc!=IntPtr.Zero) Native.ReleaseDC(Handle,dc); base.OnFormClosed(e);
         if(mode=="saver"&&!reconfiguring) Application.Exit();
     }
@@ -606,6 +622,7 @@ static class Tests {
         log.Add("PASS: unrestricted outward moves through all six former walls, camera-aware positive direction weights, inward preference offscreen and varied 3D layouts.");
         log.Add("PASS: DVD edges/corners, colour changes, delayed frames, portrait/panoramic bounds, standalone continuity, chance endpoints, persistence and smooth drifting orbit.");
         log.Add("PASS: clipped/translated paints, stale-pixel removal, 30 mode switches, typed overrides, reusable Advanced dialog, Full Random on/off/defaults and persistence, teapot randomization.");
+        VisualizerTests.Run(dir,log);
         using(var resource=System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream("RetroPipes.ThirdPartyNotices"))
             if(resource==null||resource.Length==0) throw new Exception("Teapot data license is missing from binary");
         File.WriteAllLines(Path.Combine(dir,"test-results.txt"),log.ToArray());
@@ -658,6 +675,9 @@ static class GL {
     [DllImport("opengl32.dll")] public static extern void glBegin(uint mode);
     [DllImport("opengl32.dll")] public static extern void glEnd();
     [DllImport("opengl32.dll")] public static extern void glVertex3d(double x,double y,double z);
+    [DllImport("opengl32.dll")] public static extern void glVertex2d(double x,double y);
+    [DllImport("opengl32.dll")] public static extern void glCopyTexSubImage2D(uint target,int level,int xOffset,int yOffset,int x,int y,int width,int height);
+    [DllImport("opengl32.dll",CharSet=CharSet.Ansi)] public static extern IntPtr wglGetProcAddress(string name);
     [DllImport("opengl32.dll")] public static extern void glNormal3d(double x,double y,double z);
     [DllImport("opengl32.dll")] public static extern void glColor4f(float r,float g,float b,float a);
     [DllImport("opengl32.dll")] public static extern void glDisable(uint cap);

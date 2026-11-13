@@ -12,6 +12,7 @@ class Launcher : XpForm {
     ComboBox palette; internal ComboBox modeSelector; CheckBox rotate,pipes,fireworks,bubbles,dvd,teapots; internal CheckBox spanScreens;
     CheckBox randSpeed,randCount,randPalette,randRotation,randPipes,randFireworks,randBubbles,randDensity,randTeapots,randDvd;
     NumericUpDown rotationChance,pipesChance,fireworksChance,bubblesChance,teapotChance,fireworkRate,bubbleCount,dvdChance;
+    internal CheckBox visualizer,randVisualizer; internal NumericUpDown visualizerChance; internal ComboBox visualizerPreset;
     bool persistSettings,activeSpan,wallpaperRequested; Rectangle[] activeDisplays; NotifyIcon tray; Label status,displayStatus; Timer watch=new Timer(); Image wordmark;
     List<PipesWindow> wallpapers=new List<PipesWindow>();
     Control fieldParent; Label speedLabel,countLabel,teapotLabel,fireworkLabel,bubbleLabel,modeHelp; XpButton stopButton,fullRandomButton; Panel advancedPanel; Label advancedInfo; readonly List<Control> randomControls=new List<Control>(); ToolTip tips=new ToolTip();
@@ -20,7 +21,7 @@ class Launcher : XpForm {
     internal Launcher(Settings value,bool persist) {
         settings=value; settings.Validate(); persistSettings=persist;
         SuspendLayout(); fieldParent=this;
-        Text="Retro Pipes"; ClientSize=new Size(760,646); AutoScaleMode=AutoScaleMode.None;
+        Text="Retro Pipes"; ClientSize=new Size(760,681); AutoScaleMode=AutoScaleMode.None;
         MaximizeBox=false; StartPosition=FormStartPosition.CenterScreen;
         BackColor=XpTheme.Cream; ForeColor=XpTheme.Ink; Font=new Font("Tahoma",9);
         Icon=Icon.ExtractAssociatedIcon(Application.ExecutablePath);
@@ -31,10 +32,11 @@ class Launcher : XpForm {
         modeSelector.Items.AddRange(new object[]{"Manual","Randomized"}); Controls.Add(modeSelector);
         Button("Advanced...",414,131,130,delegate { using(var dialog=CreateAdvancedWindow()) dialog.ShowDialog(this); });
         fullRandomButton=Button("Full Random: Off",560,131,172,delegate { FullRandom(); });
-        tips.SetToolTip(fullRandomButton,"Turn every randomization option on. Click again to restore basic defaults. Keeps your screen layout choice.");
-        var frame=new GroupBox {Text="Scene settings",Left=22,Top=182,Width=716,Height=265,BackColor=XpTheme.Cream,ForeColor=XpTheme.Blue};
+        tips.SetToolTip(fullRandomButton,"Turn every randomization option on. The visualizer keeps its own setting. Click again to restore basic defaults. Keeps your screen layout choice.");
+        var frame=new GroupBox {Text="Scene settings",Left=22,Top=182,Width=716,Height=300,BackColor=XpTheme.Cream,ForeColor=XpTheme.Blue};
         Controls.Add(frame); fieldParent=frame;
-        pipes=Check("Pipes",18,28,150,settings.Pipes); fireworks=Check("Fireworks",192,28,150,settings.Fireworks); bubbles=Check("Bubbles",366,28,150,settings.Bubbles); dvd=Check("DVD logo",540,28,150,settings.Dvd);
+        pipes=Check("Pipes",18,28,128,settings.Pipes); fireworks=Check("Fireworks",152,28,128,settings.Fireworks); bubbles=Check("Bubbles",286,28,128,settings.Bubbles); dvd=Check("DVD logo",420,28,128,settings.Dvd); visualizer=Check("Visualizer",554,28,140,settings.Visualizer);
+        tips.SetToolTip(visualizer,"Music visualizer background that reacts to whatever this PC is playing. No microphone is used.");
         speedLabel=Label("Pipe speed",18,70,170,24,10,Color.White);
         speed=Slider(60,25,settings.Speed); speedNumber=Number(422,66,80,1,Settings.MaxSpeed,settings.Speed,0); Bind(speed,speedNumber);
         countLabel=Label("Pipe count",18,110,170,24,10,Color.White);
@@ -42,10 +44,15 @@ class Launcher : XpForm {
         Label("Colour preset",18,150,170,24,10,Color.White);
         palette=new ComboBox {Left=192,Top=146,Width=310,DropDownStyle=ComboBoxStyle.DropDownList};
         palette.Items.AddRange(new object[]{"Classic colours","Electric neon","Polished chrome"}); palette.SelectedIndex=settings.Palette; frame.Controls.Add(palette);
-        rotate=Check("Drifting camera orbit",18,185,260,settings.Rotate);
-        Label("Type beside a slider for larger values. More options are in Advanced.",18,226,680,23,9,Color.LightSteelBlue);
+        Label("Visualizer preset",18,186,170,24,10,Color.White);
+        visualizerPreset=new ComboBox {Left=192,Top=182,Width=310,DropDownStyle=ComboBoxStyle.DropDownList};
+        visualizerPreset.Items.Add("Random, changing each scene"); visualizerPreset.Items.AddRange(Visualizer.Names); visualizerPreset.SelectedIndex=settings.VisualizerPreset+1; frame.Controls.Add(visualizerPreset);
+        tips.SetToolTip(visualizerPreset,"Pick one visualizer preset, or let each scene choose a random one.");
+        Label("Reacts to PC audio",520,186,180,24,9,Color.LightSteelBlue);
+        rotate=Check("Drifting camera orbit",18,221,260,settings.Rotate);
+        Label("Type beside a slider for larger values. More options are in Advanced.",18,261,680,23,9,Color.LightSteelBlue);
 
-        advancedPanel=new Panel {Left=18,Top=48,Width=680,Height=430,BackColor=XpTheme.Cream}; fieldParent=advancedPanel;
+        advancedPanel=new Panel {Left=18,Top=48,Width=680,Height=514,BackColor=XpTheme.Cream}; fieldParent=advancedPanel;
         teapots=Check("Teapot easter egg",18,12,200,settings.Teapots);
         teapotLabel=Label("Chance per bend (%)",228,17,182,24,9,Color.LightSteelBlue);
         teapotChance=Number(414,13,80,0,100,(decimal)settings.TeapotChance,2);
@@ -60,11 +67,12 @@ class Launcher : XpForm {
         randomControls.Add(Label("Fireworks chance (%)",18,316,320,24,10,Color.White)); fireworksChance=Number(414,312,80,0,100,settings.FireworksChance,0); randFireworks=Check("Shuffle",518,312,144,settings.RandomFireworks);
         randomControls.Add(Label("Bubbles chance (%)",18,358,320,24,10,Color.White)); bubblesChance=Number(414,354,80,0,100,settings.BubblesChance,0); randBubbles=Check("Shuffle",518,354,144,settings.RandomBubbles);
         randomControls.Add(Label("DVD chance (%)",18,400,320,24,10,Color.White)); dvdChance=Number(414,396,80,0,100,settings.DvdChance,0); randDvd=Check("Shuffle",518,396,144,settings.RandomDvd);
-        randomControls.AddRange(new Control[]{randDvd,dvdChance,randSpeed,randCount,randPalette,randRotation,randTeapots,randDensity,randPipes,randFireworks,randBubbles,rotationChance,pipesChance,fireworksChance,bubblesChance});
-        randomControls.Add(Label("Untick Shuffle to use a fixed manual value. Chances apply at each scene reset.",18,442,644,25,9,Color.LightSteelBlue));
+        randomControls.Add(Label("Visualizer chance (%)",18,442,320,24,10,Color.White)); visualizerChance=Number(414,438,80,0,100,settings.VisualizerChance,0); randVisualizer=Check("Shuffle",518,438,144,settings.RandomVisualizer);
+        randomControls.AddRange(new Control[]{randVisualizer,visualizerChance,randDvd,dvdChance,randSpeed,randCount,randPalette,randRotation,randTeapots,randDensity,randPipes,randFireworks,randBubbles,rotationChance,pipesChance,fireworksChance,bubblesChance});
+        randomControls.Add(Label("Untick Shuffle to use a fixed manual value. Chances apply at each scene reset.",18,484,644,25,9,Color.LightSteelBlue));
         fieldParent=this;
-        spanScreens=Check("One continuous scene across all detected screens",28,462,704,settings.SpanAllScreens);
-        modeHelp=Label("",28,500,704,43,9,Color.LightSteelBlue);
+        spanScreens=Check("One continuous scene across all detected screens",28,497,704,settings.SpanAllScreens);
+        modeHelp=Label("",28,535,704,43,9,Color.LightSteelBlue);
         modeSelector.SelectedIndexChanged+=delegate { UpdateMode(); };
         spanScreens.CheckedChanged+=delegate { UpdateMode(); };
         foreach(var control in randomControls) {
@@ -75,12 +83,12 @@ class Launcher : XpForm {
         tips.SetToolTip(speedNumber,"Type 1–1000. The slider covers 1–25; larger typed values are retained.");
         tips.SetToolTip(countNumber,"Type 1–500. The slider covers 1–10; larger typed values are retained.");
         modeSelector.SelectedIndex=settings.RandomizeEachRun?1:0;
-        Button("Window preview",28,555,164,delegate { Save(); new PipesWindow(settings,"window",DisplayLayout.PreviewBounds(settings.SpanAllScreens),IntPtr.Zero).Show(); });
-        Button("Try screensaver",208,555,164,delegate { Save(); Process.Start(Application.ExecutablePath,"/s"); });
-        Button("Start wallpaper",388,555,164,delegate { StartWallpaper(); });
-        stopButton=Button("Stop wallpaper",568,555,164,delegate { StopWallpaper(); }); stopButton.Enabled=false;
-        status=Label("Ready. Choose a preview, screensaver or wallpaper.",28,606,632,25,9,Color.LightSteelBlue);
-        var credits=new LinkLabel {Text="Credits",Left=675,Top=606,Width=58,Height=23,LinkColor=XpTheme.Blue};
+        Button("Window preview",28,590,164,delegate { Save(); new PipesWindow(settings,"window",DisplayLayout.PreviewBounds(settings.SpanAllScreens),IntPtr.Zero).Show(); });
+        Button("Try screensaver",208,590,164,delegate { Save(); Process.Start(Application.ExecutablePath,"/s"); });
+        Button("Start wallpaper",388,590,164,delegate { StartWallpaper(); });
+        stopButton=Button("Stop wallpaper",568,590,164,delegate { StopWallpaper(); }); stopButton.Enabled=false;
+        status=Label("Ready. Choose a preview, screensaver or wallpaper.",28,641,632,25,9,Color.LightSteelBlue);
+        var credits=new LinkLabel {Text="Credits",Left=675,Top=641,Width=58,Height=23,LinkColor=XpTheme.Blue};
         credits.LinkClicked+=delegate {
             using(var stream=Assembly.GetExecutingAssembly().GetManifestResourceStream("RetroPipes.ThirdPartyNotices"))
             using(var reader=new StreamReader(stream)) MessageBox.Show(reader.ReadToEnd(),"Retro Pipes — third-party credits");
@@ -115,9 +123,9 @@ class Launcher : XpForm {
         fireworkLabel.Text=random&&randDensity.Checked?"Firework intensity (max)":"Firework intensity";
         bubbleLabel.Text=random&&randDensity.Checked?"Bubble count (max)":"Bubble count";
         teapotLabel.Text=random&&randTeapots.Checked?"Max chance per bend (%)":"Chance per bend (%)";
-        pipes.Enabled=!(random&&randPipes.Checked); fireworks.Enabled=!(random&&randFireworks.Checked); bubbles.Enabled=!(random&&randBubbles.Checked); dvd.Enabled=!(random&&randDvd.Checked);
+        pipes.Enabled=!(random&&randPipes.Checked); fireworks.Enabled=!(random&&randFireworks.Checked); bubbles.Enabled=!(random&&randBubbles.Checked); dvd.Enabled=!(random&&randDvd.Checked); visualizer.Enabled=!(random&&randVisualizer.Checked);
         rotate.Enabled=!(random&&randRotation.Checked); palette.Enabled=!(random&&randPalette.Checked); teapots.Enabled=!(random&&randTeapots.Checked);
-        pipesChance.Enabled=randPipes.Checked; fireworksChance.Enabled=randFireworks.Checked; bubblesChance.Enabled=randBubbles.Checked; rotationChance.Enabled=randRotation.Checked; dvdChance.Enabled=randDvd.Checked;
+        pipesChance.Enabled=randPipes.Checked; fireworksChance.Enabled=randFireworks.Checked; bubblesChance.Enabled=randBubbles.Checked; rotationChance.Enabled=randRotation.Checked; dvdChance.Enabled=randDvd.Checked; visualizerChance.Enabled=randVisualizer.Checked;
         fullRandomButton.Text=FullRandomEnabled?"Full Random: On":"Full Random: Off";
         advancedInfo.Text=random?"Choose which settings change each scene. Max values limit their range; percentages set the chance.":"Choose Randomized in the main window to adjust individual shuffle options and chances.";
         modeHelp.Text=random?"Settings shuffle each scene. Use Advanced to choose what changes and adjust its chances.\n"+(spanScreens.Checked?"All screens share one roll. Growth speed stays the same.":"Each screen rolls its own settings independently."):
@@ -127,8 +135,8 @@ class Launcher : XpForm {
     internal bool FullRandomEnabled { get { return modeSelector.SelectedIndex==1&&randSpeed.Checked&&randCount.Checked&&randPalette.Checked&&randRotation.Checked&&randPipes.Checked&&randFireworks.Checked&&randBubbles.Checked&&randDensity.Checked&&randTeapots.Checked&&randDvd.Checked; } }
     internal XpForm CreateAdvancedWindow() {
         bool random=modeSelector.SelectedIndex==1;
-        var dialog=new XpForm {Text="Retro Pipes - Advanced Settings",ClientSize=new Size(716,random?592:302),StartPosition=FormStartPosition.CenterParent,Icon=Icon};
-        advancedPanel.Height=random?472:188; dialog.Controls.Add(advancedPanel);
+        var dialog=new XpForm {Text="Retro Pipes - Advanced Settings",ClientSize=new Size(716,random?634:302),StartPosition=FormStartPosition.CenterParent,Icon=Icon};
+        advancedPanel.Height=random?514:188; dialog.Controls.Add(advancedPanel);
         var done=new XpButton {Text="Done",Left=568,Top=dialog.ClientSize.Height-52,Width=126,Height=35,BackColor=XpTheme.Cream,DialogResult=DialogResult.OK};
         dialog.Controls.Add(done); dialog.AcceptButton=done; dialog.CancelButton=done;
         // Keep the same live controls and values when the temporary dialog is disposed.
@@ -147,6 +155,7 @@ class Launcher : XpForm {
             randSpeed.Checked=defaults.RandomSpeed; randCount.Checked=defaults.RandomCount; randPalette.Checked=defaults.RandomPalette; randRotation.Checked=defaults.RandomRotation;
             randPipes.Checked=defaults.RandomPipes; randFireworks.Checked=defaults.RandomFireworks; randBubbles.Checked=defaults.RandomBubbles; randDvd.Checked=defaults.RandomDvd;
             randDensity.Checked=defaults.RandomEffectDensity; randTeapots.Checked=defaults.RandomTeapots;
+            visualizer.Checked=defaults.Visualizer; randVisualizer.Checked=defaults.RandomVisualizer; visualizerChance.Value=defaults.VisualizerChance; visualizerPreset.SelectedIndex=defaults.VisualizerPreset+1;
             status.Text="Basic defaults restored. Preview or start to apply.";
         } else {
             pipes.Checked=fireworks.Checked=bubbles.Checked=dvd.Checked=rotate.Checked=teapots.Checked=true;
@@ -181,6 +190,7 @@ class Launcher : XpForm {
         settings.RandomEffectDensity=randDensity.Checked; settings.RotationChance=(int)rotationChance.Value; settings.PipesChance=(int)pipesChance.Value;
         settings.FireworksChance=(int)fireworksChance.Value; settings.BubblesChance=(int)bubblesChance.Value;
         settings.SpanAllScreens=spanScreens.Checked;
+        settings.Visualizer=visualizer.Checked; settings.RandomVisualizer=randVisualizer.Checked; settings.VisualizerChance=(int)visualizerChance.Value; settings.VisualizerPreset=visualizerPreset.SelectedIndex-1;
         settings.Validate(); pipes.Checked=settings.Pipes;
         if(persistSettings) settings.Save();
     }
